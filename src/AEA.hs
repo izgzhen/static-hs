@@ -1,11 +1,32 @@
+{-# LANGUAGE TemplateHaskell, RecordWildCards #-}
+
 -- Available Expression Analysis
 
 module AEA where
 
 import AST
 import Label
+import Iteration
 
-import Data.Set hiding (filter, foldr)
+import qualified Data.Map as M
+import Data.Maybe (fromJust)
+import Data.Set hiding (filter, foldr, map)
+import Control.Lens
+
+-- The main algorithm based on chaotic iteration
+data Solution = Solution {
+    _aeEntry :: M.Map Label (Set AExp),
+    _aeExit  :: M.Map Label (Set AExp)
+} deriving Eq
+
+instance Show Solution where
+    show sol@Solution{..} =
+        unlines $ "AE Entry" : f _aeEntry ++ ["AE Exit:"] ++ f _aeExit
+            where
+                f = M.elems . M.mapWithKey
+                        (\(Label i) exps -> show i ++ " : " ++ show (toList exps))
+
+makeLenses ''Solution
 
 -- Free variable
 fv :: AExp -> Set Name
@@ -25,19 +46,53 @@ gen (BStmt (Assign _ x a)) = fromList [ a' | a' <- toList (subExpsOf a), not (x 
 gen (BStmt (Skip _))       = empty
 gen (BBExp (bexp, _))      = subExpsOf bexp
 
-aeEntry :: Stmt Label -> Label -> Set AExp
-aeEntry stmt l
-    | initLabel stmt == l = empty
-    | otherwise           = foldr union empty [ aeExit stmt l' | (l', _) <- toList $ flow stmt ]
+aeEntrySingleStep :: Stmt Label -> Label -> Solution -> Solution
+aeEntrySingleStep stmt l sol
+    | initLabel stmt == l = sol
+    | otherwise           = aeEntry %~ (M.insert l s) $ sol
+        where s = foldr1 intersection
+                         [ unsafeLookup l' (_aeExit sol) | (l', l'') <- toList $ flow stmt
+                                                               , l == l'' ]
 
-aeExit :: Stmt Label -> Label -> Set AExp
-aeExit stmt l = let exps        = getExps stmt
-                    bs          = blocks stmt
-                    block       = head $ filter (blockHasLabel l) bs
-                    enteredExps = aeEntry stmt l
-                    killedExps  = kill exps block
-                    genExps     = gen block
-                in  (enteredExps \\ killedExps) `union` genExps
+aeExitSingleStep :: Stmt Label -> Label -> Solution -> Solution
+aeExitSingleStep stmt l sol =
+    let exps        = getExps stmt
+        bs          = blocks stmt
+        block       = head $ filter (blockHasLabel l) bs
+        enteredExps = unsafeLookup l (_aeEntry sol)
+        killedExps  = kill exps block
+        genExps     = gen block
+        s           = (enteredExps \\ killedExps) `union` genExps
+    in  aeExit %~ (M.insert l s) $ sol
+
+
+initSol :: Int -> Solution
+initSol nLabels = Solution initial initial
+    where
+        initial = M.fromList $ zip (map Label [1..nLabels]) $ repeat empty
+
+updateEntry :: Solution -> Label -> Set AExp -> Solution
+updateEntry sol l s = aeEntry %~ (M.insert l s) $ sol
+
+aea :: Stmt Label -> Solution
+aea stmt = chaotic (initSol nLabels) improveSol
+    where
+        nLabels = countLabels stmt
+
+        improveSol :: Solution -> Solution
+        improveSol = foldr1 (.) $ map with [1..nLabels]
+            where
+                with :: Int -> (Solution -> Solution)
+                with i = let f = aeEntrySingleStep stmt (Label i)
+                             g = aeExitSingleStep  stmt (Label i)
+                         in  g . f
+
+countLabels :: Stmt Label -> Int
+countLabels (Assign _ _ _) = 1
+countLabels (Skip _)       = 1
+countLabels (Seq s1 s2)    = countLabels s1 + countLabels s2
+countLabels (IfThenElse _ s1 s2) = 1 + countLabels s1 + countLabels s2
+countLabels (While _ s)    = 1 + countLabels s
 
 getExps :: Stmt a -> Set AExp
 getExps (Assign _ _ e)      = singleton e `union` subExpsOf e
@@ -65,4 +120,7 @@ instance ToAExps AExp where
     subExpsOf (ANum _)           = empty
     subExpsOf a@(AInfix a1 _ a2) = singleton a `union` subExpsOf a1 `union` subExpsOf a2
 
+
+unsafeLookup :: Ord k => k -> M.Map k v -> v
+unsafeLookup k m = fromJust $ M.lookup k m
 
