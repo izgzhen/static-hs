@@ -3,7 +3,7 @@
 
 module AST where
 
-import Data.Set hiding (foldr)
+import Data.Set (Set, singleton)
 
 type Name = String
 
