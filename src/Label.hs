@@ -46,14 +46,19 @@ instance Labelled Stmt where
 
 data Block a = BBExp (BExp, a) | BStmt (Stmt a) deriving (Show, Eq, Ord)
 
-type Blocks a = Set (Block a)
+type Blocks a = [Block a]
 
 blocks :: Ord a => Stmt a -> Blocks a
 blocks s = case s of
-    Assign _ _ _    -> singleton $ BStmt s
-    Skip _          -> singleton $ BStmt s
-    Seq s1 s2       -> blocks s1 `union` blocks s2
-    IfThenElse bexp s1 s2 ->
-        singleton (BBExp bexp) `union` blocks s1 `union` blocks s2
-    While bexp s -> singleton (BBExp bexp) `union` blocks s
+    Assign _ _ _            -> [BStmt s]
+    Skip _                  -> [BStmt s]
+    Seq s1 s2               -> blocks s1 ++ blocks s2
+    IfThenElse bexp s1 s2   -> BBExp bexp : (blocks s1 ++ blocks s2)
+    While bexp s            -> BBExp bexp : blocks s
+
+blockHasLabel :: Label -> Block Label -> Bool
+blockHasLabel l (BBExp (_, l'))          = l == l'
+blockHasLabel l (BStmt (Skip l'))        = l == l'
+blockHasLabel l (BStmt (Assign l' _ _))  = l == l'
+
 
