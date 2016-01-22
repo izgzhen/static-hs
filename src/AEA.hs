@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell, RecordWildCards, MultiParamTypeClasses #-}
 
 -- Available Expression Analysis
 
@@ -53,14 +53,14 @@ aea stmt = chaotic (initSol nLabels) improveSol
 kill :: Set AExp -> Block Label -> Set AExp
 kill exps (BStmt (Assign l x a)) =
     fromList [ a' | a' <- filter nonTrivial (toList exps)
-                  , x `member` fv a' ]
+                  , x `member` recursive a' ]
 kill _ _ = empty
 
 gen :: Block Label -> Set AExp
-gen (BStmt (Assign _ x a)) = fromList [ a' | a' <- filter nonTrivial $ toList (subExpsOf a)
-                                           , not (x `member` fv a') ]
+gen (BStmt (Assign _ x a)) = fromList [ a' | a' <- filter nonTrivial $ toList (recursive a)
+                                           , not (x `member` recursive a') ]
 gen (BStmt (Skip _))       = empty
-gen (BBExp (bexp, _))      = S.filter nonTrivial $ subExpsOf bexp
+gen (BBExp (bexp, _))      = S.filter nonTrivial $ recursive bexp
 
 -- Single step update
 
@@ -74,7 +74,7 @@ aeEntrySingleStep stmt l sol
 
 aeExitSingleStep :: Stmt Label -> Label -> Solution -> Solution
 aeExitSingleStep stmt l sol =
-    let exps        = getExps stmt
+    let exps        = recursive stmt
         bs          = blocks stmt
         block       = head $ filter (\b -> labelOfBlock b == l) bs
         enteredExps = unsafeLookup l (_aeEntry sol)

@@ -1,6 +1,9 @@
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts,
+             FlexibleInstances, UndecidableInstances #-}
+
 module AST where
 
-import Data.Set
+import Data.Set hiding (foldr)
 
 type Name = String
 
@@ -57,36 +60,72 @@ showInfix :: (Show a, Show b, Show c) => a -> b -> c -> String
 showInfix a1 op a2 = "(" ++ show a1 ++ " " ++ show op ++ " " ++ show a2 ++ ")"
 
 -- Free variable
-fv :: AExp -> Set Name
-fv (AVar x) = singleton x
-fv (ANum _) = empty
-fv (AInfix e1 _ e2) = fv e1 `union` fv e2
+class FV a where
+    fv :: a -> Set Name
+
+instance FV AExp where
+    fv (AVar x) = singleton x
+    fv (ANum _) = empty
+    fv (AInfix e1 _ e2) = fv e1 `union` fv e2
+
 
 -- Get sub arith expressions of statement
 -- Used by AEA
-
-getExps :: Stmt a -> Set AExp
-getExps (Assign _ _ e)      = singleton e `union` subExpsOf e
-getExps (Skip _)            = empty
-getExps (Seq s1 s2)         = getExps s1 `union` getExps s2
-getExps (IfThenElse (bexp, _) s1 s2) =
-    subExpsOf bexp `union` getExps s1 `union` getExps s2
-getExps (While (bexp, _) s) = subExpsOf bexp `union` getExps s
 
 nonTrivial :: AExp -> Bool
 nonTrivial (AInfix _ _ _) = True
 nonTrivial _ = False
 
-class ToAExps a where
-    subExpsOf :: a -> Set AExp
+class Recursive a e where
+    recursive :: Container m e => a -> m e
 
-instance ToAExps BExp where
-    subExpsOf (BLit _)          = empty
-    subExpsOf (BNot bexp)       = subExpsOf bexp
-    subExpsOf (BInfixB b1 _ b2) = subExpsOf b1 `union` subExpsOf b2
-    subExpsOf (BInfixA a1 _ a2) = subExpsOf a1 `union` subExpsOf a2
+class Monoid (m e) => Container m e where
+    single :: e -> m e
 
-instance ToAExps AExp where
-    subExpsOf a@(AVar _)         = singleton a
-    subExpsOf a@(ANum _)         = singleton a
-    subExpsOf a@(AInfix a1 _ a2) = singleton a `union` subExpsOf a1 `union` subExpsOf a2
+
+instance Recursive AExp a => Recursive BExp a where
+    recursive (BLit _)          = mempty
+    recursive (BNot bexp)       = recursive bexp
+    recursive (BInfixB b1 _ b2) = recursive b1 `mappend` recursive b2
+    recursive (BInfixA a1 _ a2) = recursive a1 `mappend` recursive a2
+
+instance Recursive AExp AExp where
+    recursive a@(AVar _)         = single a
+    recursive a@(ANum _)         = single a
+    recursive a@(AInfix a1 _ a2) = mconcat [single a, recursive a1, recursive a2]
+
+instance Recursive AExp Name where
+    recursive (AVar x)         = single x
+    recursive (ANum _)         = mempty
+    recursive (AInfix a1 _ a2) = mconcat [recursive a1, recursive a2]
+
+instance Recursive (Stmt a) AExp where
+    recursive = collectStmt f
+        where
+            f :: Container m AExp => Stmt a -> m AExp
+            f (Assign _ _ aexp)          = recursive aexp
+            f (IfThenElse (bexp, _) _ _) = recursive bexp
+            f (While (bexp, _) _)        = recursive bexp
+            f _                          = mempty
+
+instance Recursive (Stmt a) Name where
+    recursive = collectStmt f
+        where
+            f :: Container m Name => Stmt a -> m Name
+            f (Assign _ x aexp)          = single x `mappend` recursive aexp
+            f (IfThenElse (bexp, _) _ _) = recursive bexp
+            f (While (bexp, _) _)        = recursive bexp
+            f _                          = mempty
+
+collectStmt :: Monoid m => (Stmt a -> m) -> Stmt a -> m
+collectStmt f s = case s of
+    (Assign _ _ _)       -> f s
+    (Skip _)             -> mempty
+    (Seq s1 s2)          -> collectStmt' s1 `mappend` collectStmt' s2
+    (IfThenElse _ s1 s2) -> mconcat [f s, collectStmt' s1, collectStmt' s2]
+    (While _ s)          -> f s `mappend` collectStmt' s
+    where
+        collectStmt' = collectStmt f
+
+instance Ord a => Container Set a where
+    single = singleton
