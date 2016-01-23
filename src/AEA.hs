@@ -76,12 +76,9 @@ aeEntrySingleStep stmt l sol
 aeExitSingleStep :: Stmt Label -> Label -> Solution -> Solution
 aeExitSingleStep stmt l sol =
     let exps        = subAExps stmt
-        bs          = blocks stmt
-        block       = head $ filter (\b -> labelOfBlock b == l) bs
+        block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
         enteredExps = unsafeLookup l (_aeEntry sol)
-        killedExps  = kill exps block
-        genExps     = gen block
-        s           = (enteredExps \\ killedExps) `union` genExps
+        s           = (enteredExps \\ kill exps block) `union` gen block
     in  aeExit %~ (M.insert l s) $ sol
 
 -- Misc

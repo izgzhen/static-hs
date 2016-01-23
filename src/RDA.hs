@@ -73,19 +73,15 @@ rdEntrySingleStep :: Stmt Label -> Label -> Solution -> Solution
 rdEntrySingleStep stmt l sol
     | initLabel stmt == l = sol
     | otherwise           = rdEntry %~ (M.insert l s) $ sol
-        where s = foldr1 (++)
+        where s = foldr (++) []
                          [ unsafeLookup l' (_rdExit sol) | (l', l'') <- toList $ flow stmt
                                                          , l == l'' ]
 
 rdExitSingleStep :: Stmt Label -> Label -> Solution -> Solution
 rdExitSingleStep stmt l sol =
-    let exps        = subAExps stmt
-        bs          = blocks stmt
-        block       = head $ filter (\b -> labelOfBlock b == l) bs
-        enteredExps = unsafeLookup l (_rdEntry sol)
-        killedExps  = kill stmt block
-        genExps     = gen block
-        s           = (enteredExps L.\\ killedExps) ++ genExps
+    let block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
+        fromEntry   = unsafeLookup l (_rdEntry sol)
+        s           = (fromEntry L.\\ kill stmt block) ++ gen block
     in  rdExit %~ (M.insert l s) $ sol
 
 -- Misc

@@ -67,12 +67,9 @@ gen (BBExp (bexp, _))      = S.filter nonTrivial (subAExps bexp)
 vbeEntrySingleStep :: Stmt Label -> Label -> Solution -> Solution
 vbeEntrySingleStep stmt l sol =
     let exps        = subAExps stmt
-        bs          = blocks stmt
-        block       = head $ filter (\b -> labelOfBlock b == l) bs
+        block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
         enteredExps = unsafeLookup l (_vbeExit sol)
-        killedExps  = kill exps block
-        genExps     = gen block
-        s           = (enteredExps \\ killedExps) `union` genExps
+        s           = (enteredExps \\ kill exps block) `union` gen block
     in  vbeEntry %~ (M.insert l s) $ sol
 
 vbeExitSingleStep :: Stmt Label -> Label -> Solution -> Solution
