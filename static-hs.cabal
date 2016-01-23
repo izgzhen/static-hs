@@ -14,7 +14,7 @@ cabal-version:       >=1.10
 
 library
   -- exposed-modules:     
-  other-modules:       RDA, LVA, VBEA, Mono, Common, Example, Label, Iteration
+  other-modules:       RDA, LVA, VBEA, AEA, Mono, Common, Example, Label, Iteration
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9, containers, lens
   hs-source-dirs:      src
