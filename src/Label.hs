@@ -11,10 +11,10 @@ instance Show Label where
 type Edge = (Label, Label)
 
 class Labelled a where
-    initLabel :: a Label -> Label
+    initLabel   :: a Label -> Label
     finalLabels :: a Label -> Set Label
-    labels :: a Label -> Set Label
-    flow :: a Label -> Set Edge
+    labels      :: a Label -> Set Label
+    flow        :: a Label -> Set Edge
 
 instance Labelled Stmt where
     -- init function

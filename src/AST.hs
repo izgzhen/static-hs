@@ -12,7 +12,7 @@ data Stmt a = Assign a Name AExp
             | Seq (Stmt a) (Stmt a)
             | IfThenElse (BExp, a) (Stmt a) (Stmt a)
             | While (BExp, a) (Stmt a)
-            deriving (Show, Eq, Ord)
+            deriving (Eq, Ord)
 
 data AExp = AVar Name
           | ANum Int
@@ -29,6 +29,16 @@ data BOp = And   | Or                   deriving (Eq, Ord)
 data AOp = Plus  | Minus   | Multiply   deriving (Eq, Ord)
 data ROp = Equal | Greater | Less       deriving (Eq, Ord)
 
+instance Show a => Show (Stmt a) where
+    show (Assign l x e) = labelPrint l $ x ++ " := " ++ show e
+    show (Skip l)       = labelPrint l "skip"
+    show (Seq s1 s2)    = show s1 ++ "\n" ++ show s2
+    show (IfThenElse (bexp, l) s1 s2) =
+        "if " ++ labelPrint l (show bexp) ++ " {\n" ++ show s1 ++ "\n} else {\n" ++ show s2 ++ "\n}"
+    show (While (bexp, l) s) = "while " ++ labelPrint l (show bexp) ++ "{\n" ++ show s ++ "\n}"
+
+labelPrint :: Show a => a -> String -> String
+labelPrint l s = "[" ++ s ++ "]^" ++ show l
 
 instance Show AExp where
     show (AVar x) = x
@@ -80,7 +90,7 @@ instance Recursive AExp a => Recursive BExp a where
             f (BInfixA a1 _ a2) = recursive a1 `mappend` recursive a2
             f _ = mempty
 
-instance Collect a => Recursive a a where
+instance Recursive AExp AExp where
     recursive = collect single
 
 instance Recursive AExp Name where
@@ -136,3 +146,6 @@ instance Collect AExp where
 
 instance Ord a => Container Set a where
     single = singleton
+
+instance Container [] a where
+    single x = [x]
