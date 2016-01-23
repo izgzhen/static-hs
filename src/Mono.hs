@@ -37,7 +37,7 @@ data Lattice l = Lattice {
 data Direction = Forward | Backward
 
 data Analysis ast l a = Analysis {
-  _lattice      :: Lattice l
+  _lattice      :: ast a -> Lattice l
 , _extermals    :: ast a -> S.Set a
 , _initSol      :: ast a -> Solution a l
 , _flow         :: ast a -> S.Set (a, a)
@@ -50,18 +50,21 @@ converge :: (Ord a, Eq a) => Analysis ast l a -> ast a -> a -> Solution a l -> S
 converge analysis@Analysis{..} ast l sol
     | l `S.member` _extermals ast = sol
     | otherwise                   = entry' _direction %~ M.insert l s $ sol
-        where s = let ss = [ unsafeLookup l' (sol ^. exit' _direction)
-                           | (l', l'') <- S.toList $ _flow ast
-                           , l == l'' ]
-                  in  case ss of
-                        []  -> _bottom _lattice
-                        ss' -> foldr1 (_meet _lattice) ss'
+        where s = foldr (_meet lattice) (_bottom lattice)
+                        [ unsafeLookup l' (sol ^. exit' _direction)
+                        | (l', l'') <- S.toList $ _flow ast
+                        , l == l'' ]
+                  -- in  case ss of
+                  --       []  -> _bottom lattice
+                        -- ss' -> foldr1 (_meet lattice) ss'
 
               entry' Forward  = entry
               entry' Backward = exit
 
               exit'  Forward  = exit
               exit'  Backward = entry
+
+              lattice = _lattice ast
 
 analyze :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
            DebugOption -> Analysis ast l a -> ast a -> Solution a l

@@ -27,7 +27,7 @@ rdLattice = Lattice {
 
 rdAnalysis :: Label a => Analysis Stmt (RDProperty a) a
 rdAnalysis = Analysis {
-  _lattice      = rdLattice
+  _lattice      = \_ -> rdLattice
 , _extermals    = S.singleton . initLabel
 , _initSol      = rdInitSol
 , _flow         = flow

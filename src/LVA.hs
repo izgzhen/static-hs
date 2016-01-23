@@ -26,7 +26,7 @@ lvLattice = Lattice {
 
 lvAnalysis :: Label a => Analysis Stmt LVProperty a
 lvAnalysis = Analysis {
-  _lattice   = lvLattice
+  _lattice   = \_ -> lvLattice
 , _extermals = finalLabels
 , _initSol   = lvInitSol
 , _flow      = reverseFlow
