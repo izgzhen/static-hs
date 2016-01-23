@@ -1,99 +1,71 @@
-{-# LANGUAGE TemplateHaskell, RecordWildCards,
-             FlexibleContexts, MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses #-}
 
--- Reaching Definitions Analysis
+-- Reaching Definition Analysis Package
 
 module RDA where
 
+import Mono
 import AST
 import Label
-import Iteration
+import Common
 
-import qualified Data.Map as M
+import qualified Data.Set  as S
 import qualified Data.List as L
-import Data.Maybe (fromJust)
-import Data.Set hiding (filter, foldr, map)
-import qualified Data.Set as S
+import qualified Data.Map  as M
 import Control.Lens
 
-data Solution = Solution {
-    _rdEntry :: M.Map Label [(Name, Maybe Label)],
-    _rdExit  :: M.Map Label [(Name, Maybe Label)]
-} deriving Eq
+type RDProperty a = [(Name, Maybe a)]
 
+type RDSolution a = Solution a (RDProperty a)
 
-initSol :: [Name] -> Int -> Solution
-initSol names nLabels = Solution initial initial
+rdLattice :: Label a => Lattice (RDProperty a)
+rdLattice = Lattice {
+  _lessThen = L.isSubsequenceOf
+, _meet     = L.union
+, _bottom   = []
+}
+
+rdAnalysis :: Label a => Analysis Stmt (RDProperty a) a
+rdAnalysis = Analysis {
+  _lattice      = rdLattice
+, _extermals    = S.singleton . initLabel
+, _initSol      = rdInitSol
+, _flow         = flow
+, _transfer     = rdTransfer
+, _labels       = labels
+, _direction    = Forward
+}
+
+rdInitSol :: Label a => Stmt a -> RDSolution a
+rdInitSol stmt = Solution initial initial
     where
-        initial = M.fromList $ zip (map Label [1..nLabels]) $
+        names   = S.toList $ fv stmt
+        initial = M.fromList $ zip (S.toList $ labels stmt) $
                                    repeat (zip names (repeat Nothing))
 
-instance Show Solution where
-    show sol@Solution{..} =
-        unlines $ "RD Entry" : f _rdEntry ++ ["RD Exit:"] ++ f _rdExit
-            where
-                f = M.elems . M.mapWithKey
-                        (\(Label i) ps -> show i ++ " : " ++ unwords (map g ps))
-
-                g (x, Nothing)        = "(" ++ x ++ ", ?)"
-                g (x, Just (Label i)) = "(" ++ x ++ ", " ++ show i ++ ")"
-
-makeLenses ''Solution
-
--- The main algorithm based on chaotic iteration
-
-rda :: Stmt Label -> Solution
-rda stmt = chaotic (initSol names nLabels) improveSol
-    where
-        nLabels = length $ labels stmt
-        names   = toList $ fv stmt
-
-        improveSol :: Solution -> Solution
-        improveSol = foldr1 (.) $ map with [1..nLabels]
-            where
-                with :: Int -> (Solution -> Solution)
-                with i = let f = rdEntrySingleStep stmt (Label i)
-                             g = rdExitSingleStep  stmt (Label i)
-                         in  g . f
-
--- kill and gen functions
-kill :: Stmt Label -> Block Label -> [(Name, Maybe Label)]
-kill stmt (BStmt (Assign l x a)) =
-    (x, Nothing) : [ (x, Just l') | Assign l' x' _ <- collectAssignments stmt
-                                  , x' == x ]
-kill _ _ = []
-
-gen :: Block Label -> [(Name, Maybe Label)]
-gen (BStmt (Assign l x _)) = [(x, Just l)]
-gen _ = []
-
--- Single step update
-
-rdEntrySingleStep :: Stmt Label -> Label -> Solution -> Solution
-rdEntrySingleStep stmt l sol
-    | initLabel stmt == l = sol
-    | otherwise           = rdEntry %~ (M.insert l s) $ sol
-        where s = foldr (++) []
-                         [ unsafeLookup l' (_rdExit sol) | (l', l'') <- toList $ flow stmt
-                                                         , l == l'' ]
-
-rdExitSingleStep :: Stmt Label -> Label -> Solution -> Solution
-rdExitSingleStep stmt l sol =
+rdTransfer :: Label a => Stmt a -> a -> RDSolution a -> RDSolution a
+rdTransfer stmt l sol =
     let block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
-        fromEntry   = unsafeLookup l (_rdEntry sol)
+        fromEntry   = unsafeLookup l (_entry sol)
         s           = (fromEntry L.\\ kill stmt block) ++ gen block
-    in  rdExit %~ (M.insert l s) $ sol
+    in  exit %~ (M.insert l s) $ sol
+    where
+        -- kill and gen functions
+        kill :: Stmt a -> Block a -> RDProperty a
+        kill stmt (BStmt (Assign l x a)) =
+            (x, Nothing) : [ (x, Just l') | Assign l' x' _ <- collectAssignments stmt
+                                          , x' == x ]
+        kill _ _ = []
+
+        gen :: Block a -> RDProperty a
+        gen (BStmt (Assign l x _)) = [(x, Just l)]
+        gen _ = []
+
+rda :: (Label a, Eq (RDSolution a), Show (RDSolution a)) =>
+       DebugOption -> Stmt a -> Solution a (RDProperty a)
+rda opt = analyze opt rdAnalysis
 
 -- Misc
-
-unsafeLookup :: Ord k => k -> M.Map k v -> v
-unsafeLookup k m = fromJust $ M.lookup k m
-
-fv :: Recursive a Name => a -> Set Name
-fv = recursive
-
-subAExps :: Recursive a AExp => a -> Set AExp
-subAExps = recursive
 
 instance Recursive (Stmt a) (Stmt a) where
     recursive = collect f
@@ -103,6 +75,3 @@ instance Recursive (Stmt a) (Stmt a) where
 
 collectAssignments :: Stmt a -> [Stmt a]
 collectAssignments = recursive
-
-
-

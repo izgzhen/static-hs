@@ -5,6 +5,8 @@ module AST where
 
 import Data.Set (Set, singleton)
 
+-- AST definition
+
 type Name = String
 
 data Stmt a = Assign a Name AExp
@@ -28,6 +30,8 @@ data BExp = BLit Bool
 data BOp = And   | Or                   deriving (Eq, Ord)
 data AOp = Plus  | Minus   | Multiply   deriving (Eq, Ord)
 data ROp = Equal | Greater | Less       deriving (Eq, Ord)
+
+-- Printer Section
 
 instance Show a => Show (Stmt a) where
     show (Assign l x e) = labelPrint l $ x ++ " := " ++ show e
@@ -65,13 +69,21 @@ instance Show ROp where
     show Greater  = ">"
     show Less     = "<"
 
-
 showInfix :: (Show a, Show b, Show c) => a -> b -> c -> String
 showInfix a1 op a2 = "(" ++ show a1 ++ " " ++ show op ++ " " ++ show a2 ++ ")"
+
+-- Utilities
 
 nonTrivial :: AExp -> Bool
 nonTrivial (AInfix _ _ _) = True
 nonTrivial _ = False
+
+fv :: Recursive a Name => a -> Set Name
+fv = recursive
+
+subAExps :: Recursive a AExp => a -> Set AExp
+subAExps = recursive
+
 
 -- Some abstract shit
 

@@ -11,45 +11,6 @@ import Control.Lens
 import Iteration
 import Common
 
-{-
-    Property space: L
-        + Complete lattice
-        + Satisfies Ascending Chain Condition
-        + Having a least upper bound operator `U`
-
-    Transfer functions: F
-        + L -> L
-        + Contains identity function
-        + Closed under function composition
-
-    Distributivity:
-        + f (l1 U l2) = f(l1) U f(l2)
-
-    Flow:
-        + flow(S)
-        + reversed flow(S)
-
-    Extermal labels:
-        + init(S)
-        + final(S)
-
-    Extremal value:
-        + Some l in L for extermal labels
-
-    Mapping f:
-        + Label -> F
--}
-
-
--- summarizeSingleStep src l sol =
---     foldr1 union [ reflect l' | (l', l) <- flow src ] `union` extermal
---         where
---             extermal = if l `member` extermalLabels src
---                             then extermalProperty
---                             else lBot
-
--- reflectSingleStep src l sol = updateSol l (transfer l src sol) sol
-
 data Solution a l = Solution {
   _entry :: M.Map a l
 , _exit  :: M.Map a l
@@ -73,6 +34,8 @@ data Lattice l = Lattice {
 , _bottom :: l
 }
 
+data Direction = Forward | Backward
+
 data Analysis ast l a = Analysis {
   _lattice      :: Lattice l
 , _extermals    :: ast a -> S.Set a
@@ -80,16 +43,25 @@ data Analysis ast l a = Analysis {
 , _flow         :: ast a -> S.Set (a, a)
 , _transfer     :: ast a -> a -> Solution a l -> Solution a l
 , _labels       :: ast a -> S.Set a
+, _direction    :: Direction
 }
-
 
 converge :: (Ord a, Eq a) => Analysis ast l a -> ast a -> a -> Solution a l -> Solution a l
 converge analysis@Analysis{..} ast l sol
     | l `S.member` _extermals ast = sol
-    | otherwise                 = entry %~ (M.insert l s) $ sol
-        where s = foldr (_meet _lattice) (_bottom _lattice)
-                        [ unsafeLookup l' (_exit sol) | (l', l'') <- S.toList $ _flow ast
-                                                      , l == l'' ]
+    | otherwise                   = entry' _direction %~ M.insert l s $ sol
+        where s = let ss = [ unsafeLookup l' (sol ^. exit' _direction)
+                           | (l', l'') <- S.toList $ _flow ast
+                           , l == l'' ]
+                  in  case ss of
+                        []  -> _bottom _lattice
+                        ss' -> foldr1 (_meet _lattice) ss'
+
+              entry' Forward  = entry
+              entry' Backward = exit
+
+              exit'  Forward  = exit
+              exit'  Backward = entry
 
 analyze :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
            DebugOption -> Analysis ast l a -> ast a -> Solution a l
