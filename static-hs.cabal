@@ -17,6 +17,7 @@ library
                        Language.DFA.Packages.LVA
                        Language.DFA.Packages.VBEA
                        Language.DFA.Packages.AEA
+                       Language.DFA.Packages.CPA
                        Language.DFA.Core.Mono
                        Language.DFA.Core.Label
                        Language.DFA.Core.Iteration

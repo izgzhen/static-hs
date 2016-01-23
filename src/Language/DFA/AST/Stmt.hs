@@ -73,3 +73,10 @@ nonTrivial :: AExp -> Bool
 nonTrivial (AInfix _ _ _) = True
 nonTrivial _ = False
 
+
+applyAOp :: AOp -> Int -> Int -> Int
+applyAOp op i1 i2 = case op of
+    Plus     -> i1 + i2
+    Minus    -> i1 - i2
+    Multiply -> i1 * i2
+
