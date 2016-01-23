@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
+-- Labelled Instance for Stmt
+
 module Language.DFA.AST.Label where
 
 import Language.DFA.AST.Stmt

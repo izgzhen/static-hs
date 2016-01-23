@@ -1,6 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleContexts,
              FlexibleInstances, UndecidableInstances #-}
 
+-- Resursive Instance of Stmt
+
 module Language.DFA.AST.Recursive where
 
 import Language.DFA.Common

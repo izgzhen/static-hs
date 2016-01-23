@@ -1,8 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses, RankNTypes, FlexibleInstances #-}
 
-module Language.DFA.Core.Label where
+-- Abstract Label Type
 
--- Abstract Label Type and Instance for Stmt AST
+module Language.DFA.Core.Label where
 
 import Data.Set hiding (foldr)
 import qualified Data.Set as S
