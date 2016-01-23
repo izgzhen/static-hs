@@ -55,9 +55,6 @@ converge analysis@Analysis{..} ast l sol
                         [ unsafeLookup l' (sol ^. exit' _direction)
                         | (l', l'') <- S.toList $ _flow ast
                         , l == l'' ]
-                  -- in  case ss of
-                  --       []  -> _bottom lattice
-                        -- ss' -> foldr1 (_meet lattice) ss'
 
               entry' Forward  = entry
               entry' Backward = exit

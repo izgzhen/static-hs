@@ -5,9 +5,6 @@
 module Language.DFA.Packages.LVA where
 
 import Language.DFA.AST
-import Language.DFA.AST.Recursive
-import Language.DFA.AST.Label
-import Language.DFA.AST.Block
 import Language.DFA.Core.Label
 import Language.DFA.Core.Mono
 import Language.DFA.Common

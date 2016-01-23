@@ -1,6 +1,6 @@
 name:                static-hs
 version:             0.2.0.0
--- synopsis:            
+synopsis:            Static analysis algorithms with Haskell
 -- description:         
 license:             MIT
 license-file:        LICENSE
