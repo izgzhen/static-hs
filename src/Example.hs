@@ -75,4 +75,27 @@ example4 = IfThenElse (BInfixA (AVar "a") Greater (AVar "b"), Label 1)
                       (Assign (Label 4) "y" (AInfix (AVar "b") Minus (AVar "a")) `Seq`
                        Assign (Label 5) "x" (AInfix (AVar "a") Minus (AVar "b")))
 
+{-
+    example 5:
+
+    [x := 2]^1
+    [y := 4]^2
+    [x := 1]^3
+    if [y > x]^4 {
+        [z := y]^5
+    } else {
+        [z := y * y]^6
+    }
+    [x := z]^7
+-}
+
+example5 :: Stmt Label
+example5 = Assign (Label 1) "x" (ANum 2) `Seq`
+           Assign (Label 2) "y" (ANum 4) `Seq`
+           Assign (Label 3) "x" (ANum 1) `Seq`
+           IfThenElse (BInfixA (AVar "y") Greater (AVar "x"), Label 4)
+                            (Assign (Label 5) "z" (AVar "y"))
+                            (Assign (Label 6) "z" (AInfix (AVar "y") Multiply (AVar "y"))) `Seq`
+           Assign (Label 7) "x" (AVar "z")
+
 
