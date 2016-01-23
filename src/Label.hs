@@ -8,7 +8,9 @@ import AST
 import Data.Set hiding (foldr)
 import qualified Data.Set as S
 
-class Ord a => Labelled ast a where
+class (Ord a, Eq a) => Label a where
+
+class Label a => Labelled ast a where
     initLabel   :: ast a -> a
     finalLabels :: ast a -> Set a
     labels      :: ast a -> Set a
@@ -17,7 +19,7 @@ class Ord a => Labelled ast a where
 
     reverseFlow = S.map (\(a, b) -> (b, a)) . flow
 
-instance forall a. (Eq a, Ord a) => Labelled Stmt a where
+instance Label a => Labelled Stmt a where
     -- init function
     initLabel (Assign l _ _) = l
     initLabel (Skip l) = l
@@ -55,7 +57,7 @@ data Block a = BBExp (BExp, a) | BStmt (Stmt a) deriving (Show, Eq, Ord)
 type Blocks a = [Block a]
 
 -- blocks inside a statement
-blocks :: Ord a => Stmt a -> Blocks a
+blocks :: Label a => Stmt a -> Blocks a
 blocks s = case s of
     Assign _ _ _            -> [BStmt s]
     Skip _                  -> [BStmt s]
@@ -63,7 +65,7 @@ blocks s = case s of
     IfThenElse bexp s1 s2   -> BBExp bexp : (blocks s1 ++ blocks s2)
     While bexp s            -> BBExp bexp : blocks s
 
-labelOfBlock :: Block a -> a
+labelOfBlock :: Label a => Block a -> a
 labelOfBlock (BBExp (_, l))          = l
 labelOfBlock (BStmt (Skip l))        = l
 labelOfBlock (BStmt (Assign l _ _))  = l
