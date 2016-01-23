@@ -2,12 +2,15 @@
 
 -- Reaching Definition Analysis Package
 
-module RDA where
+module Language.DFA.Packages.RDA where
 
-import Mono
-import AST
-import Label
-import Common
+import Language.DFA.Core.Mono
+import Language.DFA.AST
+import Language.DFA.AST.Recursive
+import Language.DFA.AST.Label
+import Language.DFA.AST.Block
+import Language.DFA.Core.Label
+import Language.DFA.Common
 
 import qualified Data.Set  as S
 import qualified Data.List as L

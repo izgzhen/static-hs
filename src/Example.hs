@@ -1,7 +1,7 @@
 module Example where
 
-import AST
-import Label
+import Language.DFA.AST
+import Language.DFA.Core.Label
 
 newtype IntLabel = IntLabel { unIntLabel :: Int } deriving (Eq, Ord)
 

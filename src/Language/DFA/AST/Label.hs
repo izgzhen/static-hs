@@ -1,23 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses, RankNTypes, FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
-module Label where
+module Language.DFA.AST.Label where
 
--- Abstract Label Type and Instance for Stmt AST
-
-import AST
+import Language.DFA.AST.Stmt
+import Language.DFA.Core.Label
+import Language.DFA.AST.Block
 import Data.Set hiding (foldr)
-import qualified Data.Set as S
-
-class (Ord a, Eq a) => Label a where
-
-class Label a => Labelled ast a where
-    initLabel   :: ast a -> a
-    finalLabels :: ast a -> Set a
-    labels      :: ast a -> Set a
-    flow        :: ast a -> Set (a, a)
-    reverseFlow :: ast a -> Set (a, a)
-
-    reverseFlow = S.map (\(a, b) -> (b, a)) . flow
 
 instance Label a => Labelled Stmt a where
     -- init function
@@ -50,23 +38,3 @@ instance Label a => Labelled Stmt a where
         flow s1 `union` flow s2 `union` fromList [(l, initLabel s1), (l, initLabel s2)]
     flow (While (bexp, l) s) =
         flow s `union` fromList ((l, initLabel s) : [ (l', l) | l' <- toList $ finalLabels s])
-
--- L: Block -> Label is a bijective function
-data Block a = BBExp (BExp, a) | BStmt (Stmt a) deriving (Show, Eq, Ord)
-
-type Blocks a = [Block a]
-
--- blocks inside a statement
-blocks :: Label a => Stmt a -> Blocks a
-blocks s = case s of
-    Assign _ _ _            -> [BStmt s]
-    Skip _                  -> [BStmt s]
-    Seq s1 s2               -> blocks s1 ++ blocks s2
-    IfThenElse bexp s1 s2   -> BBExp bexp : (blocks s1 ++ blocks s2)
-    While bexp s            -> BBExp bexp : blocks s
-
-labelOfBlock :: Label a => Block a -> a
-labelOfBlock (BBExp (_, l))          = l
-labelOfBlock (BStmt (Skip l))        = l
-labelOfBlock (BStmt (Assign l _ _))  = l
-

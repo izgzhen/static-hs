@@ -2,12 +2,15 @@
 
 -- Very Busy Expressions Analysis
 
-module VBEA where
+module Language.DFA.Packages.VBEA where
 
-import Mono
-import AST
-import Label
-import Common
+import Language.DFA.Core.Mono
+import Language.DFA.AST
+import Language.DFA.AST.Recursive
+import Language.DFA.AST.Label
+import Language.DFA.AST.Block
+import Language.DFA.Core.Label
+import Language.DFA.Common
 
 import Data.Set hiding (filter)
 import qualified Data.Set as S

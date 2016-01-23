@@ -1,5 +1,5 @@
 name:                static-hs
-version:             0.1.0.0
+version:             0.2.0.0
 -- synopsis:            
 -- description:         
 license:             MIT
@@ -13,8 +13,21 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  -- exposed-modules:     
-  other-modules:       RDA, LVA, VBEA, AEA, Mono, Common, Example, Label, Iteration
+  exposed-modules:     Language.DFA.Packages.RDA
+                       Language.DFA.Packages.LVA
+                       Language.DFA.Packages.VBEA
+                       Language.DFA.Packages.AEA
+                       Language.DFA.Core.Mono
+                       Language.DFA.Core.Label
+                       Language.DFA.Core.Iteration
+                       Language.DFA.AST
+                       
+  other-modules:       Example
+                       Language.DFA.Common
+                       Language.DFA.AST.Stmt
+                       Language.DFA.AST.Recursive
+                       Language.DFA.AST.Label
+                       Language.DFA.AST.Block
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9, containers, lens
   hs-source-dirs:      src

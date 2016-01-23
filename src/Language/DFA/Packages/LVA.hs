@@ -2,12 +2,15 @@
 
 -- Live Variables Analysis
 
-module LVA where
+module Language.DFA.Packages.LVA where
 
-import AST
-import Label
-import Mono
-import Common
+import Language.DFA.AST
+import Language.DFA.AST.Recursive
+import Language.DFA.AST.Label
+import Language.DFA.AST.Block
+import Language.DFA.Core.Label
+import Language.DFA.Core.Mono
+import Language.DFA.Common
 
 import Data.Set hiding (filter)
 import qualified Data.Map as M

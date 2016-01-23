@@ -3,13 +3,14 @@
 
 -- The Monotone Framework
 
-module Mono where
+module Language.DFA.Core.Mono where
 
 import qualified Data.Set  as S
 import qualified Data.Map  as M
 import Control.Lens
-import Iteration
-import Common
+
+import Language.DFA.Core.Iteration
+import Language.DFA.Common
 
 data Solution a l = Solution {
   _entry :: M.Map a l

@@ -1,11 +1,11 @@
 -- Chaotic Iteration
 
-module Iteration where
+module Language.DFA.Core.Iteration where
 
 import qualified Data.Map as M
 import Debug.Trace
 
-import Common
+import Language.DFA.Common
 
 chaotic :: (Show sol, Eq sol) => DebugOption -> sol -> (sol -> sol) -> sol
 chaotic opt initial improve = f initial (improve initial) 0
