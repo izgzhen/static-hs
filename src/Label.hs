@@ -1,22 +1,23 @@
+{-# LANGUAGE MultiParamTypeClasses, RankNTypes, FlexibleInstances #-}
+
 module Label where
+
+-- Abstract Label Type and Instance for Stmt AST
 
 import AST
 import Data.Set hiding (foldr)
+import qualified Data.Set as S
 
-newtype Label = Label { unLabel :: Int } deriving (Eq, Ord)
+class Ord a => Labelled ast a where
+    initLabel   :: ast a -> a
+    finalLabels :: ast a -> Set a
+    labels      :: ast a -> Set a
+    flow        :: ast a -> Set (a, a)
+    reverseFlow :: ast a -> Set (a, a)
 
-instance Show Label where
-    show (Label i) = show i
+    reverseFlow = S.map (\(a, b) -> (b, a)) . flow
 
-type Edge = (Label, Label)
-
-class Labelled a where
-    initLabel   :: a Label -> Label
-    finalLabels :: a Label -> Set Label
-    labels      :: a Label -> Set Label
-    flow        :: a Label -> Set Edge
-
-instance Labelled Stmt where
+instance forall a. (Eq a, Ord a) => Labelled Stmt a where
     -- init function
     initLabel (Assign l _ _) = l
     initLabel (Skip l) = l
@@ -62,7 +63,7 @@ blocks s = case s of
     IfThenElse bexp s1 s2   -> BBExp bexp : (blocks s1 ++ blocks s2)
     While bexp s            -> BBExp bexp : blocks s
 
-labelOfBlock :: Block Label -> Label
+labelOfBlock :: Block a -> a
 labelOfBlock (BBExp (_, l))          = l
 labelOfBlock (BStmt (Skip l))        = l
 labelOfBlock (BStmt (Assign l _ _))  = l
