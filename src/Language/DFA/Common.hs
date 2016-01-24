@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances,
+             DataKinds, PolyKinds #-}
 
 -- Common Imports
 
@@ -13,10 +14,9 @@ unsafeLookup k m = fromJust $ M.lookup k m
 
 data DebugOption = ShowTrace | NoTrace
 
-
 -- Fetch `e` contained in `m` from recursive data structure `a`
-class Recursive a e where
-    recursive :: Container m e => a -> m e
+class Recursive a e t where
+    recursive :: Container m e => t -> a -> m e
 
 -- Enhance Monoid with `single`, similar to `pure`
 class Monoid (m e) => Container m e where

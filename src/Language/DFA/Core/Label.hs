@@ -12,12 +12,11 @@ class (Ord a, Eq a) => Label a where
 class Label a => Labelled ast a where
     initLabel   :: ast a -> a
     finalLabels :: ast a -> Set a
-    labels      :: ast a -> Set a
     flow        :: ast a -> Set (a, a)
     reverseFlow :: ast a -> Set (a, a)
 
     reverseFlow = S.map (\(a, b) -> (b, a)) . flow
 
-class (Labelled ast a) => InterLabelled ast a where
+class Label a => InterLabelled ast a where
     interflow :: ast a -> Set (a, a, a, a)
 

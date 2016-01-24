@@ -6,12 +6,10 @@ type Name = String
 
 -- Inter-procedural
 
-data Program a = Program (Decl a) (Stmt a) deriving (Show, Eq)
+data Program a = Program [Proc a] (Stmt a) deriving (Show, Eq)
 
-data Decl a = Proc Name [Name] [Name] a (Stmt a) a
+data Proc a = Proc Name [Name] [Name] a (Stmt a) a deriving (Show, Eq)
             -- Proc <name> <input> <output> <is> S <end>
-            | DSeq (Decl a) (Decl a)
-            deriving (Show, Eq)
 
 -- Intra-procedural
 
@@ -20,6 +18,7 @@ data Stmt a = Assign a Name AExp
             | Seq (Stmt a) (Stmt a)
             | IfThenElse (BExp, a) (Stmt a) (Stmt a)
             | While (BExp, a) (Stmt a)
+            | Call Name [AExp] [Name] a a
             deriving (Eq, Ord)
 
 data Block = BBExp BExp
@@ -53,6 +52,12 @@ instance Show a => Show (Stmt a) where
     show (IfThenElse (bexp, l) s1 s2) =
         "if " ++ labelPrint l (show bexp) ++ " {\n" ++ show s1 ++ "\n} else {\n" ++ show s2 ++ "\n}"
     show (While (bexp, l) s) = "while " ++ labelPrint l (show bexp) ++ "{\n" ++ show s ++ "\n}"
+    show (Call f ins outs lc lr) = labelPrint lc (labelPrint lr $ "f(" ++ inner ++ ")")
+        where
+            inner = splitByCommas $ map show ins ++ map ("res " ++) outs
+            splitByCommas []  = ""
+            splitByCommas [x] = x
+            splitByCommas (x:xs) = x ++ ", " ++ splitByCommas xs
 
 labelPrint :: Show a => a -> String -> String
 labelPrint l s = "[" ++ s ++ "]^" ++ show l

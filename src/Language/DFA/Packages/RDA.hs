@@ -60,11 +60,8 @@ rda opt = analyze opt rdAnalysis
 
 -- Misc
 
-instance Recursive (Stmt a) (Stmt a) where
-    recursive = collect f
-        where
-            f s@(Assign _ _ _) = single s
-            f _ = mempty
-
 collectAssignments :: Stmt a -> [Stmt a]
-collectAssignments = recursive
+collectAssignments = collect f
+    where
+        f s@(Assign _ _ _) = single s
+        f _ = mempty

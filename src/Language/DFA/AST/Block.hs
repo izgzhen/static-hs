@@ -4,7 +4,7 @@ module Language.DFA.AST.Block where
 
 import Language.DFA.AST.Def
 import Language.DFA.Core.Label
-import Data.Map
+import Data.Map hiding (map)
 
 -- blocks inside a statement
 class ToBlocks ast where
@@ -19,8 +19,9 @@ instance ToBlocks Stmt where
             insert l (BBExp bexp) (blocks s1 `union` blocks s2)
         While (bexp, l) s       -> insert l (BBExp bexp) (blocks s)
 
--- instance ToBlocks Program where
---     blocks (Program decl s) = blocks decl `union` blocks s
+instance ToBlocks Program where
+    blocks (Program procs s) = mconcat (map blocks procs) `union` blocks s
 
--- instance ToBlocks Decl where
---     blocks (Proc _ _ _ is s end) = 
+instance ToBlocks Proc where
+    blocks (Proc _ _ _ is s end) =
+        fromList [(is, BIs), (end, BEnd)] `union` blocks s
