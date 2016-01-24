@@ -8,6 +8,7 @@ module Language.DFA.Core.Mono where
 import qualified Data.Set  as S
 import qualified Data.Map  as M
 import Control.Lens
+import Debug.Trace
 
 import Language.DFA.Core.Iteration
 import Language.DFA.Common
@@ -76,15 +77,34 @@ analyze opt analysis@Analysis{..} ast = chaotic opt initSol improveSol
                         prop' = _transfer ast block prop
                     in  (exit' _direction) %~ (M.insert a prop') $ sol'
 
--- Better granularity with worklist
-analyze' :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
+-- Better granularity with MFP and worklist
+analyze' :: (Show l, Show a, Ord a, Eq a, Eq (Solution a l)) =>
            DebugOption -> Analysis ast blk l a -> ast a -> Solution a l
 analyze' opt analysis@Analysis{..} ast =
-    let arr' = iter _initSol (_flow ast)
-        bs   = _blocks ast
+    let arr' = iter (_initSol ast) flow
     in  Solution arr' (M.mapWithKey (\i prop -> _transfer ast (unsafeLookup i bs) prop) arr')
     where
-        iter = undefined
+        flow = S.toList $ _flow ast
+        bs   = _blocks ast
+
+        iter arr []     = arr
+        iter arr (w:ws) =
+            let (l, l')  = w
+                old      = unsafeLookup l' arr
+                improved = _transfer ast (unsafeLookup l bs) (unsafeLookup l arr)
+                met      = (_meet lattice) old improved
+                wplus    = filter (\(l1, _) -> l1 == l') flow
+                ifLess   = (_lessThen lattice) improved old
+            in  if not (ifLess)
+                    then traceLog arr ws (show ifLess ++ "Y") $ iter (M.insert l' met arr) (ws ++ wplus)
+                    else traceLog arr ws (show ifLess ++ "N") $ iter arr ws
+
+        lattice = _lattice ast
+
+        traceLog arr ws title x =
+            case opt of
+                NoTrace   -> x
+                ShowTrace -> trace ("------ " ++ title ++ " ------\n" ++ show arr ++ "\n" ++ show ws) x
 
 entry' :: Functor f => Direction -> (M.Map a l -> f (M.Map a l)) -> (Solution a l -> f (Solution a l))
 entry' Forward  = entry

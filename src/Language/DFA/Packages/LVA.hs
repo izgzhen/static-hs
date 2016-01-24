@@ -55,3 +55,4 @@ lvTransfer _ block exited = exited \\ kill block `union` gen block
 lva :: (Label a, Eq (LVSolution a), Show (LVSolution a)) =>
        DebugOption -> Stmt a -> Solution a LVProperty
 lva opt = analyze opt lvAnalysis
+

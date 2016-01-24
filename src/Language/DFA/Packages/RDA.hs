@@ -59,6 +59,7 @@ rda :: (Label a, Eq (RDSolution a), Show (RDSolution a)) =>
        DebugOption -> Stmt a -> Solution a (RDProperty a)
 rda opt = analyze opt rdAnalysis
 
+
 -- Misc
 
 instance Recursive (Stmt a) (Stmt a) where
