@@ -43,10 +43,10 @@ data Analysis ast blk l a = Analysis {
 , _extermals    :: ast a -> S.Set a
 , _initSol      :: ast a -> M.Map a l
 , _flow         :: ast a -> S.Set (a, a)
-, _transfer     :: ast a -> blk a -> l -> l
+, _transfer     :: ast a -> (blk, a) -> l -> l
 , _labels       :: ast a -> S.Set a
 , _direction    :: Direction
-, _blocks       :: ast a -> M.Map a (blk a)
+, _blocks       :: ast a -> M.Map a blk
 }
 
 converge :: (Ord a, Eq a) => Analysis ast blk l a -> ast a -> a -> Solution a l -> Solution a l
@@ -74,7 +74,7 @@ analyze opt analysis@Analysis{..} ast = chaotic opt initSol improveSol
                     let sol'  = converge analysis ast a sol
                         block = unsafeLookup a $ _blocks ast
                         prop  = unsafeLookup a (sol' ^. entry' _direction)
-                        prop' = _transfer ast block prop
+                        prop' = _transfer ast (block, a) prop
                     in  (exit' _direction) %~ (M.insert a prop') $ sol'
 
 -- Better granularity with MFP and worklist
@@ -82,7 +82,7 @@ analyze' :: (Show l, Show a, Ord a, Eq a, Eq (Solution a l)) =>
            DebugOption -> Analysis ast blk l a -> ast a -> Solution a l
 analyze' opt analysis@Analysis{..} ast =
     let arr' = iter (_initSol ast) flow
-    in  Solution arr' (M.mapWithKey (\i prop -> _transfer ast (unsafeLookup i bs) prop) arr')
+    in  Solution arr' (M.mapWithKey (\i prop -> _transfer ast (unsafeLookup i bs, i) prop) arr')
     where
         flow = S.toList $ _flow ast
         bs   = _blocks ast
@@ -91,20 +91,20 @@ analyze' opt analysis@Analysis{..} ast =
         iter arr (w:ws) =
             let (l, l')  = w
                 old      = unsafeLookup l' arr
-                improved = _transfer ast (unsafeLookup l bs) (unsafeLookup l arr)
+                improved = _transfer ast (unsafeLookup l bs, l) (unsafeLookup l arr)
                 met      = (_meet lattice) old improved
                 wplus    = filter (\(l1, _) -> l1 == l') flow
                 ifLess   = (_lessThen lattice) improved old
             in  if not (ifLess)
-                    then traceLog arr ws (show ifLess ++ "Y") $ iter (M.insert l' met arr) (ws ++ wplus)
-                    else traceLog arr ws (show ifLess ++ "N") $ iter arr ws
+                    then traceLog arr ws $ iter (M.insert l' met arr) (ws ++ wplus)
+                    else traceLog arr ws $ iter arr ws
 
         lattice = _lattice ast
 
-        traceLog arr ws title x =
+        traceLog arr ws x =
             case opt of
                 NoTrace   -> x
-                ShowTrace -> trace ("------ " ++ title ++ " ------\n" ++ show arr ++ "\n" ++ show ws) x
+                ShowTrace -> trace ("------ Iteration ------\n" ++ show arr ++ "\n" ++ show ws) x
 
 entry' :: Functor f => Direction -> (M.Map a l -> f (M.Map a l)) -> (Solution a l -> f (Solution a l))
 entry' Forward  = entry

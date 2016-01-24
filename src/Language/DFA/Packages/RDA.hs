@@ -41,18 +41,16 @@ rdInitSol :: Label a => Stmt a -> M.Map a (RDProperty a)
 rdInitSol stmt = M.fromList $ zip (S.toList $ labels stmt) $
                                   repeat (zip (S.toList $ fv stmt) (repeat Nothing))
 
-rdTransfer :: Label a => Stmt a -> Block a -> RDProperty a -> RDProperty a
-rdTransfer stmt block entered = (entered L.\\ kill stmt block) ++ gen block
+rdTransfer :: Label a => Stmt a -> (Block, a) -> RDProperty a -> RDProperty a
+rdTransfer stmt (block, l) entered = (entered L.\\ kill stmt block) ++ gen block
     where
         -- kill and gen functions
-        kill :: Stmt a -> Block a -> RDProperty a
-        kill stmt (BStmt (Assign l x a)) =
+        kill stmt (BAssign x a) =
             (x, Nothing) : [ (x, Just l') | Assign l' x' _ <- collectAssignments stmt
                                           , x' == x ]
         kill _ _ = []
 
-        gen :: Block a -> RDProperty a
-        gen (BStmt (Assign l x _)) = [(x, Just l)]
+        gen (BAssign x _) = [(x, Just l)]
         gen _ = []
 
 rda :: (Label a, Eq (RDSolution a), Show (RDSolution a)) =>

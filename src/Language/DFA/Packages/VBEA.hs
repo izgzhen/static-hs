@@ -40,20 +40,20 @@ vbeAnalysis = Analysis {
 vbeInitSol :: Label a => Stmt a -> M.Map a VBEProperty
 vbeInitSol stmt = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
-vbeTransfer :: Label a => Stmt a -> Block a -> VBEProperty -> VBEProperty
-vbeTransfer stmt block entered = entered \\ kill (subAExps stmt) block `union` gen block
+vbeTransfer :: Label a => Stmt a -> (Block, a) -> VBEProperty -> VBEProperty
+vbeTransfer stmt (block, _) entered = entered \\ kill (subAExps stmt) block `union` gen block
     where
         -- kill and gen functions
-        kill :: Set AExp -> Block a -> VBEProperty
-        kill exps (BStmt (Assign l x a)) =
+        kill :: Set AExp -> Block -> VBEProperty
+        kill exps (BAssign x a) =
             fromList [ a' | a' <- filter nonTrivial (toList exps)
                           , x `member` fv a' ]
         kill _ _ = empty
 
-        gen :: Block a -> VBEProperty
-        gen (BStmt (Assign _ x a)) = S.filter nonTrivial (subAExps a)
-        gen (BStmt (Skip _))       = empty
-        gen (BBExp (bexp, _))      = S.filter nonTrivial (subAExps bexp)
+        gen :: Block -> VBEProperty
+        gen (BAssign x a) = S.filter nonTrivial (subAExps a)
+        gen BSkip         = empty
+        gen (BBExp bexp)  = S.filter nonTrivial (subAExps bexp)
 
 
 vbea :: (Label a, Eq (VBESolution a), Show (VBESolution a)) =>

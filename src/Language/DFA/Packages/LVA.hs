@@ -39,18 +39,18 @@ lvAnalysis = Analysis {
 lvInitSol :: Label a => Stmt a -> M.Map a LVProperty
 lvInitSol stmt = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
-lvTransfer :: Label a => Stmt a -> Block a -> LVProperty -> LVProperty
-lvTransfer _ block exited = exited \\ kill block `union` gen block
+lvTransfer :: Label a => Stmt a -> (Block, a) -> LVProperty -> LVProperty
+lvTransfer _ (block, _) exited = exited \\ kill block `union` gen block
     where
         -- kill and gen functions
-        kill :: Block a -> LVProperty
-        kill (BStmt (Assign l x a)) = singleton x
-        kill _                      = empty
+        kill :: Block -> LVProperty
+        kill (BAssign x a) = singleton x
+        kill _             = empty
 
-        gen :: Block a -> LVProperty
-        gen (BStmt (Assign _ x a)) = fv a
-        gen (BStmt (Skip _))       = empty
-        gen (BBExp (bexp, _))      = fv bexp
+        gen :: Block -> LVProperty
+        gen (BAssign x a) = fv a
+        gen BSkip         = empty
+        gen (BBExp bexp)  = fv bexp
 
 lva :: (Label a, Eq (LVSolution a), Show (LVSolution a)) =>
        DebugOption -> Stmt a -> Solution a LVProperty

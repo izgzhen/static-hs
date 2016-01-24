@@ -1,8 +1,19 @@
-module Language.DFA.AST.Stmt where
+module Language.DFA.AST.Def where
 
--- Stmt AST definition
+-- AST definitions
 
 type Name = String
+
+-- Inter-procedural
+
+data Program a = Program (Decl a) (Stmt a) deriving (Show, Eq)
+
+data Decl a = Proc Name [Name] [Name] a (Stmt a) a
+            -- Proc <name> <input> <output> <is> S <end>
+            | DSeq (Decl a) (Decl a)
+            deriving (Show, Eq)
+
+-- Intra-procedural
 
 data Stmt a = Assign a Name AExp
             | Skip a
@@ -10,6 +21,13 @@ data Stmt a = Assign a Name AExp
             | IfThenElse (BExp, a) (Stmt a) (Stmt a)
             | While (BExp, a) (Stmt a)
             deriving (Eq, Ord)
+
+data Block = BBExp BExp
+           | BSkip
+           | BAssign Name AExp
+           | BIs
+           | BEnd
+           deriving (Show, Eq, Ord)
 
 data AExp = AVar Name
           | ANum Int

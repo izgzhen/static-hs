@@ -18,3 +18,6 @@ class Label a => Labelled ast a where
 
     reverseFlow = S.map (\(a, b) -> (b, a)) . flow
 
+class (Labelled ast a) => InterLabelled ast a where
+    interflow :: ast a -> Set (a, a, a, a)
+

@@ -6,7 +6,7 @@
 module Language.DFA.AST.Recursive where
 
 import Language.DFA.Common
-import Language.DFA.AST.Stmt
+import Language.DFA.AST.Def
 
 fv :: (Container m Name, Recursive a Name) => a -> m Name
 fv = recursive

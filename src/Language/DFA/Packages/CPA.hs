@@ -93,12 +93,11 @@ cpInitSol stmt = initial
         initial = M.fromList $ zip (toList $ labels stmt) $
                                    repeat $ Just (M.fromList (zip names (repeat BotInt)))
 
-cpTransfer :: Label a => Stmt a -> Block a -> CPProperty -> CPProperty
-cpTransfer stmt block entered = case block of
-        BStmt (Assign _ x a) ->
-            entered >>= \e -> return $ M.insert x (acp a entered) e
-        BStmt (Skip _)       -> entered
-        BBExp (bexp, _)      -> entered
+cpTransfer :: Label a => Stmt a -> (Block, a) -> CPProperty -> CPProperty
+cpTransfer stmt (block, _) entered = case block of
+        BAssign x a -> entered >>= \e -> return $ M.insert x (acp a entered) e
+        BSkip       -> entered
+        BBExp bexp  -> entered
     where
         acp :: AExp -> CPProperty -> ExtendedInt
         acp (AVar x) Nothing   = BotInt

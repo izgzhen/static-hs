@@ -50,23 +50,23 @@ aeAnalysis = Analysis {
 aeInitSol :: Label a => Stmt a -> M.Map a AEProperty
 aeInitSol stmt = M.fromList $ zip (toList $ labels stmt) $ repeat Nothing
 
-aeTransfer :: Label a => Stmt a -> Block a -> AEProperty -> AEProperty
-aeTransfer stmt block = \case
+aeTransfer :: Label a => Stmt a -> (Block, a) -> AEProperty -> AEProperty
+aeTransfer stmt (block, _) = \case
     Nothing      -> Just $ gen block \\ kill (subAExps stmt) block
     Just entered -> Just $ entered \\ kill (subAExps stmt) block `union` gen block
     where
         -- kill and gen functions
-        kill :: Set AExp -> Block a -> Set AExp
-        kill exps (BStmt (Assign l x a)) =
+        kill :: Set AExp -> Block -> Set AExp
+        kill exps (BAssign x a) =
             fromList [ a' | a' <- filter nonTrivial (toList exps)
                           , x `member` fv a' ]
         kill _ _ = empty
 
-        gen :: Block a -> Set AExp
-        gen (BStmt (Assign _ x a)) = fromList [ a' | a' <- filter nonTrivial $ toList (subAExps a)
+        gen :: Block -> Set AExp
+        gen (BAssign x a) = fromList [ a' | a' <- filter nonTrivial $ toList (subAExps a)
                                                    , not (x `member` fv a') ]
-        gen (BStmt (Skip _))       = empty
-        gen (BBExp (bexp, _))      = S.filter nonTrivial $ subAExps bexp
+        gen BSkip         = empty
+        gen (BBExp bexp)  = S.filter nonTrivial $ subAExps bexp
 
 aea :: (Label a, Eq (AESolution a), Show a) =>
        DebugOption -> Stmt a -> Solution a AEProperty

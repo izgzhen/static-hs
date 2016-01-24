@@ -2,24 +2,25 @@ module Language.DFA.AST.Block where
 
 -- Basic Block of Stmt
 
-import Language.DFA.AST.Stmt
+import Language.DFA.AST.Def
 import Language.DFA.Core.Label
 import Data.Map
 
--- L: Block -> Label is a bijective function
-data Block a = BBExp (BExp, a) | BStmt (Stmt a) deriving (Show, Eq, Ord)
-
 -- blocks inside a statement
-blocks :: Label a => Stmt a -> Map a (Block a)
-blocks s = case s of
-    Assign l _ _            -> singleton l (BStmt s)
-    Skip l                  -> singleton l (BStmt s)
-    Seq s1 s2               -> blocks s1 `union` blocks s2
-    IfThenElse (bexp, l) s1 s2 ->
-        insert l (BBExp (bexp, l)) (blocks s1 `union` blocks s2)
-    While (bexp, l) s       -> insert l (BBExp (bexp, l)) (blocks s)
+class ToBlocks ast where
+    blocks :: Label a => ast a -> Map a Block
 
-labelOfBlock :: Label a => Block a -> a
-labelOfBlock (BBExp (_, l))          = l
-labelOfBlock (BStmt (Skip l))        = l
-labelOfBlock (BStmt (Assign l _ _))  = l
+instance ToBlocks Stmt where
+    blocks s = case s of
+        Assign l x a            -> singleton l (BAssign x a)
+        Skip l                  -> singleton l BSkip
+        Seq s1 s2               -> blocks s1 `union` blocks s2
+        IfThenElse (bexp, l) s1 s2 ->
+            insert l (BBExp bexp) (blocks s1 `union` blocks s2)
+        While (bexp, l) s       -> insert l (BBExp bexp) (blocks s)
+
+-- instance ToBlocks Program where
+--     blocks (Program decl s) = blocks decl `union` blocks s
+
+-- instance ToBlocks Decl where
+--     blocks (Proc _ _ _ is s end) = 

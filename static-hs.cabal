@@ -25,7 +25,7 @@ library
                        
   other-modules:       Example
                        Language.DFA.Common
-                       Language.DFA.AST.Stmt
+                       Language.DFA.AST.Def
                        Language.DFA.AST.Recursive
                        Language.DFA.AST.Label
                        Language.DFA.AST.Block
