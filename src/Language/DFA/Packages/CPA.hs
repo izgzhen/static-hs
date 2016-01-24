@@ -87,8 +87,8 @@ cpAnalysis = Analysis {
 , _blocks       = blocks
 }
 
-cpInitSol :: Label a => Stmt a -> CPSolution a
-cpInitSol stmt = Solution initial initial
+cpInitSol :: Label a => Stmt a -> M.Map a CPProperty
+cpInitSol stmt = initial
     where
         names   = S.toList $ fv stmt
         initial = M.fromList $ zip (toList $ labels stmt) $

@@ -38,10 +38,8 @@ aeAnalysis = Analysis {
 , _blocks       = blocks
 }
 
-aeInitSol :: Label a => Stmt a -> AESolution a
-aeInitSol stmt = Solution initial initial
-    where
-        initial = M.fromList $ zip (toList $ labels stmt) $ repeat empty
+aeInitSol :: Label a => Stmt a -> M.Map a AEProperty
+aeInitSol stmt = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
 aeTransfer :: Label a => Stmt a -> Block a -> AEProperty -> AEProperty
 aeTransfer stmt block entered = entered \\ kill (subAExps stmt) block `union` gen block

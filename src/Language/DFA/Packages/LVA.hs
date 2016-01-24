@@ -37,10 +37,8 @@ lvAnalysis = Analysis {
 , _blocks       = blocks
 }
 
-lvInitSol :: Label a => Stmt a -> LVSolution a
-lvInitSol stmt = Solution initial initial
-    where
-        initial = M.fromList $ zip (toList $ labels stmt) $ repeat empty
+lvInitSol :: Label a => Stmt a -> M.Map a LVProperty
+lvInitSol stmt = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
 lvTransfer :: Label a => Stmt a -> Block a -> LVProperty -> LVProperty
 lvTransfer _ block exited = exited \\ kill block `union` gen block

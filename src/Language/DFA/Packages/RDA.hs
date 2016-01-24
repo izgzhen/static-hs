@@ -38,12 +38,9 @@ rdAnalysis = Analysis {
 , _blocks       = blocks
 }
 
-rdInitSol :: Label a => Stmt a -> RDSolution a
-rdInitSol stmt = Solution initial initial
-    where
-        names   = S.toList $ fv stmt
-        initial = M.fromList $ zip (S.toList $ labels stmt) $
-                                   repeat (zip names (repeat Nothing))
+rdInitSol :: Label a => Stmt a -> M.Map a (RDProperty a)
+rdInitSol stmt = M.fromList $ zip (S.toList $ labels stmt) $
+                                  repeat (zip (S.toList $ fv stmt) (repeat Nothing))
 
 rdTransfer :: Label a => Stmt a -> Block a -> RDProperty a -> RDProperty a
 rdTransfer stmt block entered = (entered L.\\ kill stmt block) ++ gen block

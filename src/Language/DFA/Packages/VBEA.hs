@@ -38,10 +38,8 @@ vbeAnalysis = Analysis {
 , _blocks       = blocks
 }
 
-vbeInitSol :: Label a => Stmt a -> VBESolution a
-vbeInitSol stmt = Solution initial initial
-    where
-        initial = M.fromList $ zip (toList $ labels stmt) $ repeat empty
+vbeInitSol :: Label a => Stmt a -> M.Map a VBEProperty
+vbeInitSol stmt = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
 vbeTransfer :: Label a => Stmt a -> Block a -> VBEProperty -> VBEProperty
 vbeTransfer stmt block entered = entered \\ kill (subAExps stmt) block `union` gen block

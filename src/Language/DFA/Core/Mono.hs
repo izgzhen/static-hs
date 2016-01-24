@@ -40,7 +40,7 @@ data Direction = Forward | Backward
 data Analysis ast blk l a = Analysis {
   _lattice      :: ast a -> Lattice l
 , _extermals    :: ast a -> S.Set a
-, _initSol      :: ast a -> Solution a l
+, _initSol      :: ast a -> M.Map a l
 , _flow         :: ast a -> S.Set (a, a)
 , _transfer     :: ast a -> blk a -> l -> l
 , _labels       :: ast a -> S.Set a
@@ -58,18 +58,14 @@ converge analysis@Analysis{..} ast l sol
                         | (l', l'') <- S.toList $ _flow ast
                         , l == l'' ]
 
-              entry' Forward  = entry
-              entry' Backward = exit
-
-              exit'  Forward  = exit
-              exit'  Backward = entry
-
               lattice = _lattice ast
 
+-- Coarse Chaotic Iteration
 analyze :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
            DebugOption -> Analysis ast blk l a -> ast a -> Solution a l
-analyze opt analysis@Analysis{..} ast = chaotic opt (_initSol ast) improveSol
+analyze opt analysis@Analysis{..} ast = chaotic opt initSol improveSol
     where
+        initSol = Solution (_initSol ast) (_initSol ast)
         -- improveSol :: Solution a l -> Solution a l
         improveSol = foldr1 (.) $ map with $ S.toList (_labels ast)
             where
@@ -81,10 +77,16 @@ analyze opt analysis@Analysis{..} ast = chaotic opt (_initSol ast) improveSol
                         prop' = _transfer ast block prop
                     in  (exit' _direction) %~ (M.insert a prop') $ sol'
 
-                entry' Forward  = entry
-                entry' Backward = exit
+-- Better granularity with worklist
+-- analyze' :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
+--            DebugOption -> Analysis ast blk l a -> ast a -> Solution a l
+-- analyze opt analysis@Analysis{..} ast = 
 
-                exit'  Forward  = exit
-                exit'  Backward = entry
+entry' :: Functor f => Direction -> (M.Map a l -> f (M.Map a l)) -> (Solution a l -> f (Solution a l))
+entry' Forward  = entry
+entry' Backward = exit
 
+exit' :: Functor f => Direction -> (M.Map a l -> f (M.Map a l)) -> (Solution a l -> f (Solution a l))
+exit' Forward  = exit
+exit' Backward = entry
 
