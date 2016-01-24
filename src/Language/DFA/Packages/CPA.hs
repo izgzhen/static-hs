@@ -83,7 +83,6 @@ cpAnalysis = Analysis {
 , _transfer     = cpTransfer
 , _labels       = labels
 , _direction    = Forward
-, _labelOfBlock = labelOfBlock
 , _blocks       = blocks
 }
 

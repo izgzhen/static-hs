@@ -33,7 +33,6 @@ lvAnalysis = Analysis {
 , _transfer  = lvTransfer
 , _labels    = labels
 , _direction = Backward
-, _labelOfBlock = labelOfBlock
 , _blocks       = blocks
 }
 

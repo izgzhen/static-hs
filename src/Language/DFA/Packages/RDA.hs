@@ -34,7 +34,6 @@ rdAnalysis = Analysis {
 , _transfer     = rdTransfer
 , _labels       = labels
 , _direction    = Forward
-, _labelOfBlock = labelOfBlock
 , _blocks       = blocks
 }
 

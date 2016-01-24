@@ -34,7 +34,6 @@ aeAnalysis = Analysis {
 , _transfer     = aeTransfer
 , _labels       = labels
 , _direction    = Forward
-, _labelOfBlock = labelOfBlock
 , _blocks       = blocks
 }
 

@@ -34,7 +34,6 @@ vbeAnalysis = Analysis {
 , _transfer     = vbeTransfer
 , _labels       = labels
 , _direction    = Backward
-, _labelOfBlock = labelOfBlock
 , _blocks       = blocks
 }
 

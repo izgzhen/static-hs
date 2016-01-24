@@ -45,8 +45,7 @@ data Analysis ast blk l a = Analysis {
 , _transfer     :: ast a -> blk a -> l -> l
 , _labels       :: ast a -> S.Set a
 , _direction    :: Direction
-, _labelOfBlock :: blk a -> a
-, _blocks       :: ast a -> [blk a]
+, _blocks       :: ast a -> M.Map a (blk a)
 }
 
 converge :: (Ord a, Eq a) => Analysis ast blk l a -> ast a -> a -> Solution a l -> Solution a l
@@ -72,15 +71,20 @@ analyze opt analysis@Analysis{..} ast = chaotic opt initSol improveSol
                 -- with :: a -> (Solution a l -> Solution a l)
                 with a sol =
                     let sol'  = converge analysis ast a sol
-                        block = head $ filter (\b -> _labelOfBlock b == a) $ _blocks ast
+                        block = unsafeLookup a $ _blocks ast
                         prop  = unsafeLookup a (sol' ^. entry' _direction)
                         prop' = _transfer ast block prop
                     in  (exit' _direction) %~ (M.insert a prop') $ sol'
 
 -- Better granularity with worklist
--- analyze' :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
---            DebugOption -> Analysis ast blk l a -> ast a -> Solution a l
--- analyze opt analysis@Analysis{..} ast = 
+analyze' :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
+           DebugOption -> Analysis ast blk l a -> ast a -> Solution a l
+analyze' opt analysis@Analysis{..} ast =
+    let arr' = iter _initSol (_flow ast)
+        bs   = _blocks ast
+    in  Solution arr' (M.mapWithKey (\i prop -> _transfer ast (unsafeLookup i bs) prop) arr')
+    where
+        iter = undefined
 
 entry' :: Functor f => Direction -> (M.Map a l -> f (M.Map a l)) -> (Solution a l -> f (Solution a l))
 entry' Forward  = entry
