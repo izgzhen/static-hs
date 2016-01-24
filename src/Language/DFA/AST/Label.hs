@@ -34,11 +34,11 @@ instance Label a => Labelled Stmt a where
     flow (Assign _ _ _) = empty
     flow (Skip _) = empty
     flow (Seq s1 s2) = flow s1 `union` flow s2 `union`
-                        fromList [ (l, initLabel s2) | l <- toList $ finalLabels s1]
+                        fromList [ Intrap (l, initLabel s2) | l <- toList $ finalLabels s1]
     flow (IfThenElse (bexp, l) s1 s2) =
-        flow s1 `union` flow s2 `union` fromList [(l, initLabel s1), (l, initLabel s2)]
+        flow s1 `union` flow s2 `union` fromList [ Intrap (l, initLabel s1), Intrap (l, initLabel s2)]
     flow (While (bexp, l) s) =
-        flow s `union` fromList ((l, initLabel s) : [ (l', l) | l' <- toList $ finalLabels s])
+        flow s `union` fromList (Intrap (l, initLabel s) : [ Intrap (l', l) | l' <- toList $ finalLabels s])
 
 
 instance Label a => Labelled Program a where
@@ -50,8 +50,8 @@ instance Label a => Labelled Proc a where
     initLabel (Proc _ _ _ is _ _)    = is
     finalLabels (Proc _ _ _ _ _ end) = singleton end
     flow (Proc _ _ _ is s end)       =
-        singleton (is, initLabel s) `union` flow s `union`
-            fromList (zip (toList $ finalLabels s) (repeat end))
+        singleton (Interp (is, initLabel s)) `union` flow s `union`
+            fromList (map Interp (zip (toList $ finalLabels s) (repeat end)))
 
 
 instance Label a => InterLabelled Program a where

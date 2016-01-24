@@ -10,6 +10,7 @@ import qualified Data.Map  as M
 import Control.Lens
 import Debug.Trace
 
+import Language.DFA.Core.Label
 import Language.DFA.Core.Iteration
 import Language.DFA.Common
 
@@ -42,7 +43,7 @@ data Analysis ast blk l a = Analysis {
   _lattice      :: ast a -> Lattice l
 , _extermals    :: ast a -> S.Set a
 , _initSol      :: ast a -> M.Map a l
-, _flow         :: ast a -> S.Set (a, a)
+, _flow         :: ast a -> S.Set (Edge a)
 , _transfer     :: ast a -> (blk, a) -> l -> l
 , _labels       :: ast a -> S.Set a
 , _direction    :: Direction
@@ -55,7 +56,7 @@ converge analysis@Analysis{..} ast l sol
     | otherwise                   = entry' _direction %~ M.insert l s $ sol
         where s = foldr (_meet lattice) (_bottom lattice)
                         [ unsafeLookup l' (sol ^. exit' _direction)
-                        | (l', l'') <- S.toList $ _flow ast
+                        | Intrap (l', l'') <- S.toList $ _flow ast
                         , l == l'' ]
 
               lattice = _lattice ast
@@ -89,11 +90,11 @@ analyze' opt analysis@Analysis{..} ast =
 
         iter arr []     = arr
         iter arr (w:ws) =
-            let (l, l')  = w
+            let Intrap (l, l') = w
                 old      = unsafeLookup l' arr
                 improved = _transfer ast (unsafeLookup l bs, l) (unsafeLookup l arr)
                 met      = (_meet lattice) old improved
-                wplus    = filter (\(l1, _) -> l1 == l') flow
+                wplus    = filter (\(Intrap (l1, _)) -> l1 == l') flow
                 ifLess   = (_lessThen lattice) improved old
             in  if not (ifLess)
                     then traceLog arr ws $ iter (M.insert l' met arr) (ws ++ wplus)
