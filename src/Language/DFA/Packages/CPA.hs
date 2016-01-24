@@ -74,7 +74,7 @@ cpLattice stmt = Lattice {
 , _bottom   = Nothing
 }
 
-cpAnalysis :: Label a => Analysis Stmt CPProperty a
+cpAnalysis :: Label a => Analysis Stmt Block CPProperty a
 cpAnalysis = Analysis {
   _lattice      = cpLattice
 , _extermals    = singleton . initLabel
@@ -83,6 +83,8 @@ cpAnalysis = Analysis {
 , _transfer     = cpTransfer
 , _labels       = labels
 , _direction    = Forward
+, _labelOfBlock = labelOfBlock
+, _blocks       = blocks
 }
 
 cpInitSol :: Label a => Stmt a -> CPSolution a
@@ -92,17 +94,12 @@ cpInitSol stmt = Solution initial initial
         initial = M.fromList $ zip (toList $ labels stmt) $
                                    repeat $ Just (M.fromList (zip names (repeat BotInt)))
 
-cpTransfer :: Label a => Stmt a -> a -> CPSolution a -> CPSolution a
-cpTransfer stmt l sol =
-    let block = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
-        entered = unsafeLookup l (_entry sol)
-        s = case block of
-                BStmt (Assign _ x a) ->
-                    entered >>= \e -> return $ M.insert x (acp a entered) e
-                BStmt (Skip _)       -> entered
-                BBExp (bexp, _)      -> entered
-    in  exit %~ (M.insert l s) $ sol
-
+cpTransfer :: Label a => Stmt a -> Block a -> CPProperty -> CPProperty
+cpTransfer stmt block entered = case block of
+        BStmt (Assign _ x a) ->
+            entered >>= \e -> return $ M.insert x (acp a entered) e
+        BStmt (Skip _)       -> entered
+        BBExp (bexp, _)      -> entered
     where
         acp :: AExp -> CPProperty -> ExtendedInt
         acp (AVar x) Nothing   = BotInt

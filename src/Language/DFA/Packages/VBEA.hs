@@ -25,7 +25,7 @@ vbeLattice stmt = Lattice {
 , _bottom   = S.filter nonTrivial $ subAExps stmt
 }
 
-vbeAnalysis :: Label a => Analysis Stmt VBEProperty a
+vbeAnalysis :: Label a => Analysis Stmt Block VBEProperty a
 vbeAnalysis = Analysis {
   _lattice      = vbeLattice
 , _extermals    = finalLabels
@@ -34,6 +34,8 @@ vbeAnalysis = Analysis {
 , _transfer     = vbeTransfer
 , _labels       = labels
 , _direction    = Backward
+, _labelOfBlock = labelOfBlock
+, _blocks       = blocks
 }
 
 vbeInitSol :: Label a => Stmt a -> VBESolution a
@@ -41,13 +43,8 @@ vbeInitSol stmt = Solution initial initial
     where
         initial = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
-vbeTransfer :: Label a => Stmt a -> a -> VBESolution a -> VBESolution a
-vbeTransfer stmt l sol =
-    let exps        = subAExps stmt
-        block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
-        enteredExps = unsafeLookup l (_exit sol)
-        s           = (enteredExps \\ kill exps block) `union` gen block
-    in  entry %~ (M.insert l s) $ sol
+vbeTransfer :: Label a => Stmt a -> Block a -> VBEProperty -> VBEProperty
+vbeTransfer stmt block entered = entered \\ kill (subAExps stmt) block `union` gen block
     where
         -- kill and gen functions
         kill :: Set AExp -> Block a -> VBEProperty

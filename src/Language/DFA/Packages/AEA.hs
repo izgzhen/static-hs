@@ -25,7 +25,7 @@ aeLattice stmt = Lattice {
 , _bottom   = S.filter nonTrivial $ subAExps stmt
 }
 
-aeAnalysis :: Label a => Analysis Stmt AEProperty a
+aeAnalysis :: Label a => Analysis Stmt Block AEProperty a
 aeAnalysis = Analysis {
   _lattice      = aeLattice
 , _extermals    = singleton . initLabel
@@ -34,6 +34,8 @@ aeAnalysis = Analysis {
 , _transfer     = aeTransfer
 , _labels       = labels
 , _direction    = Forward
+, _labelOfBlock = labelOfBlock
+, _blocks       = blocks
 }
 
 aeInitSol :: Label a => Stmt a -> AESolution a
@@ -41,13 +43,8 @@ aeInitSol stmt = Solution initial initial
     where
         initial = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
-aeTransfer :: Label a => Stmt a -> a -> AESolution a -> AESolution a
-aeTransfer stmt l sol =
-    let exps        = subAExps stmt
-        block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
-        enteredExps = unsafeLookup l (_entry sol)
-        s           = (enteredExps \\ kill exps block) `union` gen block
-    in  exit %~ (M.insert l s) $ sol
+aeTransfer :: Label a => Stmt a -> Block a -> AEProperty -> AEProperty
+aeTransfer stmt block entered = entered \\ kill (subAExps stmt) block `union` gen block
     where
         -- kill and gen functions
         kill :: Set AExp -> Block a -> AEProperty

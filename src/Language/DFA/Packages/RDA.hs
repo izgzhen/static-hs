@@ -25,7 +25,7 @@ rdLattice = Lattice {
 , _bottom   = []
 }
 
-rdAnalysis :: Label a => Analysis Stmt (RDProperty a) a
+rdAnalysis :: Label a => Analysis Stmt Block (RDProperty a) a
 rdAnalysis = Analysis {
   _lattice      = \_ -> rdLattice
 , _extermals    = S.singleton . initLabel
@@ -34,6 +34,8 @@ rdAnalysis = Analysis {
 , _transfer     = rdTransfer
 , _labels       = labels
 , _direction    = Forward
+, _labelOfBlock = labelOfBlock
+, _blocks       = blocks
 }
 
 rdInitSol :: Label a => Stmt a -> RDSolution a
@@ -43,12 +45,8 @@ rdInitSol stmt = Solution initial initial
         initial = M.fromList $ zip (S.toList $ labels stmt) $
                                    repeat (zip names (repeat Nothing))
 
-rdTransfer :: Label a => Stmt a -> a -> RDSolution a -> RDSolution a
-rdTransfer stmt l sol =
-    let block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
-        fromEntry   = unsafeLookup l (_entry sol)
-        s           = (fromEntry L.\\ kill stmt block) ++ gen block
-    in  exit %~ (M.insert l s) $ sol
+rdTransfer :: Label a => Stmt a -> Block a -> RDProperty a -> RDProperty a
+rdTransfer stmt block entered = (entered L.\\ kill stmt block) ++ gen block
     where
         -- kill and gen functions
         kill :: Stmt a -> Block a -> RDProperty a

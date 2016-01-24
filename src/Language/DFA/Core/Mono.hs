@@ -37,17 +37,19 @@ data Lattice l = Lattice {
 
 data Direction = Forward | Backward
 
-data Analysis ast l a = Analysis {
+data Analysis ast blk l a = Analysis {
   _lattice      :: ast a -> Lattice l
 , _extermals    :: ast a -> S.Set a
 , _initSol      :: ast a -> Solution a l
 , _flow         :: ast a -> S.Set (a, a)
-, _transfer     :: ast a -> a -> Solution a l -> Solution a l
+, _transfer     :: ast a -> blk a -> l -> l
 , _labels       :: ast a -> S.Set a
 , _direction    :: Direction
+, _labelOfBlock :: blk a -> a
+, _blocks       :: ast a -> [blk a]
 }
 
-converge :: (Ord a, Eq a) => Analysis ast l a -> ast a -> a -> Solution a l -> Solution a l
+converge :: (Ord a, Eq a) => Analysis ast blk l a -> ast a -> a -> Solution a l -> Solution a l
 converge analysis@Analysis{..} ast l sol
     | l `S.member` _extermals ast = sol
     | otherwise                   = entry' _direction %~ M.insert l s $ sol
@@ -65,14 +67,24 @@ converge analysis@Analysis{..} ast l sol
               lattice = _lattice ast
 
 analyze :: (Ord a, Eq a, Eq (Solution a l), Show (Solution a l)) =>
-           DebugOption -> Analysis ast l a -> ast a -> Solution a l
+           DebugOption -> Analysis ast blk l a -> ast a -> Solution a l
 analyze opt analysis@Analysis{..} ast = chaotic opt (_initSol ast) improveSol
     where
         -- improveSol :: Solution a l -> Solution a l
         improveSol = foldr1 (.) $ map with $ S.toList (_labels ast)
             where
                 -- with :: a -> (Solution a l -> Solution a l)
-                with a = let f = converge analysis ast  a
-                             g = _transfer ast a
-                         in  g . f
+                with a sol =
+                    let sol'  = converge analysis ast a sol
+                        block = head $ filter (\b -> _labelOfBlock b == a) $ _blocks ast
+                        prop  = unsafeLookup a (sol' ^. entry' _direction)
+                        prop' = _transfer ast block prop
+                    in  (exit' _direction) %~ (M.insert a prop') $ sol'
+
+                entry' Forward  = entry
+                entry' Backward = exit
+
+                exit'  Forward  = exit
+                exit'  Backward = entry
+
 

@@ -24,7 +24,7 @@ lvLattice = Lattice {
 , _bottom   = empty
 }
 
-lvAnalysis :: Label a => Analysis Stmt LVProperty a
+lvAnalysis :: Label a => Analysis Stmt Block LVProperty a
 lvAnalysis = Analysis {
   _lattice   = \_ -> lvLattice
 , _extermals = finalLabels
@@ -33,6 +33,8 @@ lvAnalysis = Analysis {
 , _transfer  = lvTransfer
 , _labels    = labels
 , _direction = Backward
+, _labelOfBlock = labelOfBlock
+, _blocks       = blocks
 }
 
 lvInitSol :: Label a => Stmt a -> LVSolution a
@@ -40,12 +42,8 @@ lvInitSol stmt = Solution initial initial
     where
         initial = M.fromList $ zip (toList $ labels stmt) $ repeat empty
 
-lvTransfer :: Label a => Stmt a -> a -> LVSolution a -> LVSolution a
-lvTransfer stmt l sol =
-    let block       = head $ filter (\b -> labelOfBlock b == l) $ blocks stmt
-        fromExit    = unsafeLookup l (_exit sol)
-        s           = (fromExit \\ kill block) `union` gen block
-    in  entry %~ (M.insert l s) $ sol
+lvTransfer :: Label a => Stmt a -> Block a -> LVProperty -> LVProperty
+lvTransfer _ block exited = exited \\ kill block `union` gen block
     where
         -- kill and gen functions
         kill :: Block a -> LVProperty
