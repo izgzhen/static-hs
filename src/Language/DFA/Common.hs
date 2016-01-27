@@ -14,6 +14,12 @@ type Name = String
 unsafeLookup :: Ord k => k -> M.Map k v -> v
 unsafeLookup k m = fromJust $ M.lookup k m
 
+unsafeLookup' :: Ord k => String -> k -> M.Map k v -> v
+unsafeLookup' hint k m =
+    case M.lookup k m of
+        Just x  -> x
+        Nothing -> error $ "unsafeLookup failed: " ++ hint
+
 data DebugOption = ShowTrace | NoTrace
 
 -- Fetch `e` contained in `m` from recursive data structure `a`

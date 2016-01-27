@@ -114,6 +114,6 @@ applyAOpExt _   _          BotInt     = BotInt
 applyAOpExt _   _          _          = TopInt
 
 cpa :: (Label a, Eq (CPSolution a), Show (CPSolution a)) =>
-       DebugOption -> Stmt a -> Solution a CPProperty
+       DebugOption -> Program a -> SolutionInterp a CPProperty
 cpa opt = analyze opt cpAnalysis
 

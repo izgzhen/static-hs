@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell, RecordWildCards,
-             FlexibleContexts #-}
+             FlexibleContexts, LambdaCase #-}
 
 -- The Monotone Framework
 
@@ -9,6 +9,7 @@ import qualified Data.Set  as S
 import qualified Data.Map  as M
 import Control.Lens
 import Debug.Trace
+import Debug.Trace.LocationTH
 
 import Language.DFA.Core.Label
 import Language.DFA.Core.Iteration
@@ -39,7 +40,7 @@ data Lattice l = Lattice {
 
 data Direction = Forward | Backward
 
-data CtxOp a l = PushCtx (M.Map a l)
+data CtxOp a l = PushCtx (M.Map a l) [Edge a]
                | PopCtx (l -> l -> l)
 
 data Analysis ast blk l a = Analysis {
@@ -47,6 +48,7 @@ data Analysis ast blk l a = Analysis {
 , _extermals    :: ast a -> S.Set a
 , _initSol      :: ast a -> M.Map a l
 , _flow         :: ast a -> S.Set (Edge a)
+, _interflow    :: ast a -> S.Set (a, a, a, a)
 , _transfer     :: ast a -> (blk, a) -> l -> l
 , _labels       :: ast a -> S.Set a
 , _direction    :: Direction
@@ -120,26 +122,32 @@ type CallString a = [a]
 data SolutionInterp a l = SolutionInterp {
   _curCtx    :: CallString a
 , _suspended :: M.Map (CallString a) (M.Map a l)
-} deriving (Show)
+}
+
+instance (Show a, Show l) => Show (SolutionInterp a l) where
+    show s@SolutionInterp{..} =
+        "Current Context: " ++ show _curCtx ++ "\n" ++
+        "Suspended:\n" ++ unlines (map (\(cs, prop) -> show cs ++ "\t" ++ show (M.toList prop)) (M.toList _suspended))
 
 analyzeInterp :: (Ord a, Eq a, Show l, Eq (Solution a l), Show a, Show (Solution a l)) =>
                  DebugOption -> Analysis ast blk l a -> ast a -> SolutionInterp a l
 analyzeInterp opt analysis@Analysis{..} ast = iter initSol flow
-    -- let arr' = 
-    -- Solution arr' (M.mapWithKey (\i prop -> _transfer ast (unsafeLookup i bs, i) prop) arr')
     where
         initSol = SolutionInterp [] (M.singleton [] (_initSol ast))
 
-        flow  = S.toList $ _flow ast
+        interflow = S.toList $ _interflow ast
+        flow  = S.toList (_flow ast) ++ concatMap (\(lc, ln, lx, lr) -> [ Interp (lc, ln), Interp (lx, lr)] ) interflow
         bs    = _blocks ast
 
         iter sol []     = sol
         iter sol (w:ws) = case w of
             Intrap (l, l') -> withIntrap sol $ \cont sol ->
-                let old      = unsafeLookup l' sol
-                    improved = _transfer ast (unsafeLookup l bs, l) (unsafeLookup l sol)
+                let old      = unsafeLookup' $(__LOCATION__) l' sol
+                    improved = _transfer ast (unsafeLookup' $(__LOCATION__) l bs, l) (unsafeLookup' $(__LOCATION__) l sol)
                     met      = (_meet lattice) old improved
-                    wplus    = filter (\(Intrap (l1, _)) -> l1 == l') flow
+                    wplus    = filter (\case
+                                            Intrap (l1, _) -> l1 == l'
+                                            Interp (l1, _) -> l1 == l') flow
                     ifLess   = (_lessThen lattice) improved old
                 in  if not (ifLess)
                         then traceLog sol ws $ cont (M.insert l' met sol) (ws ++ wplus)
@@ -147,29 +155,30 @@ analyzeInterp opt analysis@Analysis{..} ast = iter initSol flow
             Interp (l, l') ->
                 let prop = curPropWithLabel sol l
                 in case _ctxOp ast l l' prop of
-                    PushCtx ctxInitSol ->
+                    PushCtx ctxInitSol wplus ->
                         let newCtx  = l : (_curCtx sol)
                             newSusp = M.insert newCtx ctxInitSol (_suspended sol)
-                            wplus   = filter (\(Intrap (l1, _)) -> l1 == l') flow
-                        in  iter (SolutionInterp newCtx newSusp) (ws ++ wplus)
+                        in  iter (SolutionInterp newCtx newSusp) (wplus ++ ws)
                     PopCtx f ->
                         let curCtx   = _curCtx sol
-                            curProp  = unsafeLookup curCtx (_suspended sol)
+                            curProp  = unsafeLookup' $(__LOCATION__) curCtx (_suspended sol)
                             oldCtx   = tail curCtx
-                            oldProp  = unsafeLookup oldCtx (_suspended sol)
-                            oldProp' = f (unsafeLookup l curProp) (unsafeLookup l' oldProp)
+                            oldProp  = unsafeLookup' $(__LOCATION__) oldCtx (_suspended sol)
+                            oldProp' = f (unsafeLookup' $(__LOCATION__) l curProp) (unsafeLookup' $(__LOCATION__) l' oldProp)
                             susp'    = M.insert oldCtx (M.insert l' oldProp' oldProp)
                                                        (M.delete curCtx $ _suspended sol)
-                            wplus    = filter (\(Intrap (l1, _)) -> l1 == l') flow
+                            wplus    = filter (\case
+                                            Intrap (l1, _) -> l1 == l'
+                                            Interp (l1, _) -> l1 == l') flow
                         in  iter (SolutionInterp oldCtx susp') (ws ++ wplus)
-
 
         lattice = _lattice ast
 
         traceLog arr ws x =
             case opt of
                 NoTrace   -> x
-                ShowTrace -> trace ("------ Iteration ------\n" ++ show arr ++ "\n" ++ show ws) x
+                ShowTrace -> trace ("------ Iteration ------\n" ++ show (M.toList arr) ++
+                                    "\nWorklist: " ++ show ws ++ "\n") x
 
         withIntrap s cb =
             let curCtx  = _curCtx s

@@ -54,7 +54,8 @@ dsAnalysis = Analysis {
   _lattice      = dsLattice
 , _extermals    = S.singleton . initLabel
 , _initSol      = dsInitSol
-, _flow         = flow
+, _flow         = \(Program _ stmt) -> flow stmt
+, _interflow    = interflow
 , _transfer     = dsTranfer
 , _labels       = labels
 , _direction    = Forward
@@ -73,6 +74,9 @@ dsTranfer _ (block, l) entered = case block of
         BAssign x a -> M.insert x (acp a entered) entered
         BSkip       -> entered
         BBExp bexp  -> entered
+        BCall _ _ _ -> entered
+        BIs         -> entered
+        BEnd        -> entered
     where
         acp :: AExp -> DSProperty -> Sign
         acp (AVar x) p = unsafeLookup x p
@@ -112,7 +116,8 @@ dsCtxOp p@(Program procs _) l l' prop =
                 dict  = zip (S.toList $ labels proc) $
                             repeat (M.fromList $ zip (fv stmt)
                                                      (repeat Bottom))
-            in  PushCtx $ M.insert l' prop' (M.fromList dict)
+                wplus = S.toList $ flow proc
+            in  PushCtx (M.insert l' prop' (M.fromList dict)) wplus
         (BEnd, BCall f ins outs) -> PopCtx $ \retsiteProp callsiteProp ->
                     let proc = head $ filter (\(Proc f' _ _ _ _ _) -> f' == f) procs
                         Proc _ ins' outs' _ stmt _ = proc
