@@ -1,8 +1,8 @@
 module Language.DFA.AST.Def where
 
--- AST definitions
+import Language.DFA.Common
 
-type Name = String
+-- AST definitions
 
 -- Inter-procedural
 
@@ -18,7 +18,7 @@ data Stmt a = Assign a Name AExp
             | Seq (Stmt a) (Stmt a)
             | IfThenElse (BExp, a) (Stmt a) (Stmt a)
             | While (BExp, a) (Stmt a)
-            | Call Name [AExp] [Name] a a
+            | Call Name [Name] [Name] a a
             deriving (Eq, Ord)
 
 data Block = BBExp BExp
@@ -26,6 +26,7 @@ data Block = BBExp BExp
            | BAssign Name AExp
            | BIs
            | BEnd
+           | BCall Name [Name] [Name]
            deriving (Show, Eq, Ord)
 
 data AExp = AVar Name

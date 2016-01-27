@@ -18,6 +18,8 @@ instance ToBlocks Stmt where
         IfThenElse (bexp, l) s1 s2 ->
             insert l (BBExp bexp) (blocks s1 `union` blocks s2)
         While (bexp, l) s       -> insert l (BBExp bexp) (blocks s)
+        Call x ins outs is end  -> fromList [ (is, BCall x ins outs)
+                                            , (end, BCall x ins outs) ] -- FIXME: a bit weird
 
 instance ToBlocks Program where
     blocks (Program procs s) = mconcat (map blocks procs) `union` blocks s

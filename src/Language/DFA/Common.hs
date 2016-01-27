@@ -9,6 +9,8 @@ import Data.Set (Set, singleton)
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 
+type Name = String
+
 unsafeLookup :: Ord k => k -> M.Map k v -> v
 unsafeLookup k m = fromJust $ M.lookup k m
 

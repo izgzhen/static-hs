@@ -22,6 +22,7 @@ instance Label a => Labelled Stmt a where
     initLabel (Seq s1 s2) = initLabel s1
     initLabel (IfThenElse (_, l) _ _) = l
     initLabel (While (bexp, l) _) = l
+    initLabel (Call _ _ _ is _) = is
 
     -- final function
     finalLabels (Assign l _ _) = singleton l
@@ -29,22 +30,31 @@ instance Label a => Labelled Stmt a where
     finalLabels (Seq s1 s2) = finalLabels s2
     finalLabels (IfThenElse _ s1 s2) = finalLabels s1 `union` finalLabels s2
     finalLabels (While (bexp, l) _) = singleton l
+    finalLabels (Call _ _ _ _ end)  = singleton end
 
     -- flow function
     flow (Assign _ _ _) = empty
-    flow (Skip _) = empty
-    flow (Seq s1 s2) = flow s1 `union` flow s2 `union`
+    flow (Skip _)       = empty
+    flow (Seq s1 s2)    = flow s1 `union` flow s2 `union`
                         fromList [ Intrap (l, initLabel s2) | l <- toList $ finalLabels s1]
     flow (IfThenElse (bexp, l) s1 s2) =
         flow s1 `union` flow s2 `union` fromList [ Intrap (l, initLabel s1), Intrap (l, initLabel s2)]
     flow (While (bexp, l) s) =
         flow s `union` fromList (Intrap (l, initLabel s) : [ Intrap (l', l) | l' <- toList $ finalLabels s])
+    flow (Call _ _ _ is end) = empty -- FIXME: this will be reconstructed before
+                                     --        before the top-call from flow (Program _ _)
 
 
 instance Label a => Labelled Program a where
     initLabel (Program _ s)   = initLabel s
     finalLabels (Program _ s) = finalLabels s
-    flow (Program procs s)    = mconcat (map flow procs) `union` flow s
+    flow (Program procs s)    = mconcat (map flow procs) `union` flow s `union` callflows
+        where
+            callflows = fromList $ (\(as, bs) -> as ++ bs) $ unzip
+                [ (Interp (lc, ln), Interp (lx, lr))
+                | Call _ _ _ lc lr   <- collectCalls s
+                , Proc _ _ _ ln _ lx <- procs
+                ]
 
 instance Label a => Labelled Proc a where
     initLabel (Proc _ _ _ is _ _)    = is
@@ -57,7 +67,7 @@ instance Label a => Labelled Proc a where
 instance Label a => InterLabelled Program a where
     interflow (Program procs s) =
         fromList [ (lc, ln, lx, lr)
-                 | Call fcs _ _ lc lr <- collectCalls s
+                 | Call fcs _ _ lc lr   <- collectCalls s
                  , Proc fce _ _ ln _ lx <- procs
                  , fcs == fce ]
 
