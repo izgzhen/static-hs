@@ -49,6 +49,8 @@ instance Recursive (Stmt a) Name Fv where
             f (Assign _ x aexp)          = single x `mappend` recursive ty aexp
             f (IfThenElse (bexp, _) _ _) = recursive ty bexp
             f (While (bexp, _) _)        = recursive ty bexp
+            f (Call _ ins outs _ _)      = mconcat (map single ins) `mappend`
+                                           mconcat (map single outs)
             f _                          = mempty
 
 instance Collect (Stmt a) where
@@ -58,6 +60,8 @@ instance Collect (Stmt a) where
         Seq s1 s2          -> collect' s1 `mappend` collect' s2
         IfThenElse _ s1 s2 -> collect' s1 `mappend` collect' s2
         While _ s          -> collect' s
+        Call _ _ _ _ _     -> mempty
+
         where
             collect' = collect f
 

@@ -49,7 +49,7 @@ dsLE ds1 ds2 = all id $ map (\(x, s1) -> s1 `sLE` unsafeLookup x ds2) $ M.toList
 dsMeet :: DSProperty -> DSProperty -> DSProperty
 dsMeet ds1 ds2 = M.mapWithKey (\x s1 -> s1 `sMeet` unsafeLookup x ds2) ds1
 
-dsAnalysis :: Label a => Analysis Program Block DSProperty a
+dsAnalysis :: (Show a, Label a) => Analysis Program Block DSProperty a
 dsAnalysis = Analysis {
   _lattice      = dsLattice
 , _extermals    = S.singleton . initLabel
@@ -102,7 +102,7 @@ applyAOpDS = \case
     _                               -> Top
 
 -- Interp flow (l, l')
-dsCtxOp :: Label a => Program a -> a -> a -> DSProperty -> CtxOp a DSProperty
+dsCtxOp :: (Show a, Label a) => Program a -> a -> a -> DSProperty -> CtxOp a DSProperty
 dsCtxOp p@(Program procs _) l l' prop =
     case (unsafeLookup l bs, unsafeLookup l' bs) of
         (BCall f ins outs, BIs) ->
@@ -120,6 +120,12 @@ dsCtxOp p@(Program procs _) l l' prop =
                         callsiteProp' = foldr meet callsiteProp propRet
                         meet (x, px) p = M.insert x (px `sMeet` unsafeLookup x p) p
                     in  callsiteProp'
+        _ -> error $ "Illegal interprocedural flow labels: " ++ show l ++ ", " ++ show l'
     where
         bs = blocks p
+
+
+dsa :: (Label a, Show a) =>
+       DebugOption -> Program a -> SolutionInterp a DSProperty
+dsa opt = analyzeInterp opt dsAnalysis
 

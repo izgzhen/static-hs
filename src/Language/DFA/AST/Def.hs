@@ -53,7 +53,7 @@ instance Show a => Show (Stmt a) where
     show (IfThenElse (bexp, l) s1 s2) =
         "if " ++ labelPrint l (show bexp) ++ " {\n" ++ show s1 ++ "\n} else {\n" ++ show s2 ++ "\n}"
     show (While (bexp, l) s) = "while " ++ labelPrint l (show bexp) ++ "{\n" ++ show s ++ "\n}"
-    show (Call f ins outs lc lr) = labelPrint lc (labelPrint lr $ "f(" ++ inner ++ ")")
+    show (Call f ins outs lc lr) = labelPrint lc (labelPrint lr $ f ++ "(" ++ inner ++ ")")
         where
             inner = splitByCommas $ map show ins ++ map ("res " ++) outs
             splitByCommas []  = ""

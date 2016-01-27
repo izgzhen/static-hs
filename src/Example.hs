@@ -106,3 +106,30 @@ example5 = Assign (IntLabel 1) "x" (ANum 2) `Seq`
            Assign (IntLabel 7) "x" (AVar "z")
 
 
+
+{-
+    example 6:
+
+    proc negate (val x, res nx) ^1 {
+        [nx := (0 - x)]^2
+    }^3
+
+    [y := 1]^4
+    [z := 0]^5
+    [[negate(y, res z)]^7]^6
+-}
+
+example6 :: Program IntLabel
+example6 = Program procs stmt
+    where
+        procs = [Proc "negate" ["x"] ["nx"] (IntLabel 1) negateBody (IntLabel 3)]
+        negateBody = Assign (IntLabel 2) "nx" (AInfix (ANum 0) Minus (AVar "x"))
+        stmt = Assign (IntLabel 4) "y" (ANum 1) `Seq`
+               Assign (IntLabel 5) "z" (ANum 0) `Seq`
+               Call "negate" ["y"] ["z"] (IntLabel 6) (IntLabel 7)
+
+
+
+
+
+

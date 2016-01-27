@@ -60,8 +60,8 @@ instance Label a => Labelled Proc a where
     initLabel (Proc _ _ _ is _ _)    = is
     finalLabels (Proc _ _ _ _ _ end) = singleton end
     flow (Proc _ _ _ is s end)       =
-        singleton (Interp (is, initLabel s)) `union` flow s `union`
-            fromList (map Interp (zip (toList $ finalLabels s) (repeat end)))
+        singleton (Intrap (is, initLabel s)) `union` flow s `union`
+            fromList (map Intrap (zip (toList $ finalLabels s) (repeat end)))
 
 
 instance Label a => InterLabelled Program a where

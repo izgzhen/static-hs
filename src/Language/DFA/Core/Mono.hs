@@ -120,7 +120,7 @@ type CallString a = [a]
 data SolutionInterp a l = SolutionInterp {
   _curCtx    :: CallString a
 , _suspended :: M.Map (CallString a) (M.Map a l)
-}
+} deriving (Show)
 
 analyzeInterp :: (Ord a, Eq a, Show l, Eq (Solution a l), Show a, Show (Solution a l)) =>
                  DebugOption -> Analysis ast blk l a -> ast a -> SolutionInterp a l
@@ -135,7 +135,7 @@ analyzeInterp opt analysis@Analysis{..} ast = iter initSol flow
 
         iter sol []     = sol
         iter sol (w:ws) = case w of
-            Intrap (l, l') -> withIntrap $ \cont sol ->
+            Intrap (l, l') -> withIntrap sol $ \cont sol ->
                 let old      = unsafeLookup l' sol
                     improved = _transfer ast (unsafeLookup l bs, l) (unsafeLookup l sol)
                     met      = (_meet lattice) old improved
@@ -171,9 +171,16 @@ analyzeInterp opt analysis@Analysis{..} ast = iter initSol flow
                 NoTrace   -> x
                 ShowTrace -> trace ("------ Iteration ------\n" ++ show arr ++ "\n" ++ show ws) x
 
-withIntrap = undefined
+        withIntrap s cb =
+            let curCtx  = _curCtx s
+                curProp = unsafeLookup curCtx (_suspended s)
+            in  cb (\curProp' ws' ->
+                        iter (SolutionInterp curCtx $ M.insert curCtx curProp' (_suspended s)) ws'
+                        ) curProp
 
-curPropWithLabel = undefined
+        curPropWithLabel s l =
+            let prop = unsafeLookup (_curCtx s) (_suspended s)
+            in  unsafeLookup l prop
 
 --- Misc
 
