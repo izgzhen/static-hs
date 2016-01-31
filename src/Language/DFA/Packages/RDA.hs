@@ -31,10 +31,12 @@ rdAnalysis = Analysis {
 , _extermals    = S.singleton . initLabel
 , _initSol      = rdInitSol
 , _flow         = flow
+, _interflow    = undefined
 , _transfer     = rdTransfer
 , _labels       = labels
 , _direction    = Forward
-, _blocks       = blocks
+, _toBlocks     = toBlocks
+, _getContextOp = undefined
 }
 
 rdInitSol :: Label a => Stmt a -> M.Map a (RDProperty a)

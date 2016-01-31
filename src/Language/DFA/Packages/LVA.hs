@@ -30,10 +30,12 @@ lvAnalysis = Analysis {
 , _extermals = finalLabels
 , _initSol   = lvInitSol
 , _flow      = reverseFlow
+, _interflow = undefined
 , _transfer  = lvTransfer
 , _labels    = labels
 , _direction = Backward
-, _blocks       = blocks
+, _toBlocks  = toBlocks
+, _getContextOp = undefined
 }
 
 lvInitSol :: Label a => Stmt a -> M.Map a LVProperty

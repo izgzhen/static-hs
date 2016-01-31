@@ -19,7 +19,7 @@ instance ToBlocks Stmt where
             insert l (BBExp bexp) (toBlocks s1 `union` toBlocks s2)
         While (bexp, l) s       -> insert l (BBExp bexp) (toBlocks s)
         Call x ins outs is end  -> fromList [ (is, BCall x ins outs)
-                                            , (end, BCall x ins outs) ] -- FIXME: a bit weird
+                                            , (end, BCall x ins outs) ]
 
 instance ToBlocks Program where
     toBlocks (Program procs s) = mconcat (map toBlocks procs) `union` toBlocks s

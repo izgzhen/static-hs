@@ -41,8 +41,8 @@ instance Label a => Labelled Stmt a where
         flow s1 `union` flow s2 `union` fromList [ Intrap (l, initLabel s1), Intrap (l, initLabel s2)]
     flow (While (bexp, l) s) =
         flow s `union` fromList (Intrap (l, initLabel s) : [ Intrap (l', l) | l' <- toList $ finalLabels s])
-    flow (Call _ _ _ is end) = empty -- FIXME: this will be reconstructed before
-                                     --        before the top-call from flow (Program _ _)
+    flow (Call _ _ _ is end) = empty -- Note: this will be reconstructed 
+                                     -- before the top-call from flow (Program _ _)
 
 
 instance Label a => Labelled Program a where

@@ -31,10 +31,12 @@ vbeAnalysis = Analysis {
 , _extermals    = finalLabels
 , _initSol      = vbeInitSol
 , _flow         = reverseFlow
+, _interflow    = undefined
 , _transfer     = vbeTransfer
 , _labels       = labels
 , _direction    = Backward
-, _blocks       = blocks
+, _toBlocks     = toBlocks
+, _getContextOp = undefined
 }
 
 vbeInitSol :: Label a => Stmt a -> M.Map a VBEProperty

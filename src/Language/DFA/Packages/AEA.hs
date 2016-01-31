@@ -41,10 +41,12 @@ aeAnalysis = Analysis {
 , _extermals    = singleton . initLabel
 , _initSol      = aeInitSol
 , _flow         = flow
+, _interflow    = undefined
 , _transfer     = aeTransfer
 , _labels       = labels
 , _direction    = Forward
-, _blocks       = blocks
+, _toBlocks     = toBlocks
+, _getContextOp = undefined
 }
 
 aeInitSol :: Label a => Stmt a -> M.Map a AEProperty

@@ -152,9 +152,11 @@ analyzeInterp opt analysis@Analysis{..} prog =
                                 calleeProp = unsafeLookup' $__LOCATION__ l (_property curCtx)
                                 newProp = M.update (Just . refine calleeProp)
                                                    l' (_property callerCtx)
-                            in  iter (callerCtx { _property = newProp } : prevCtxs')
-                            -- FIXME: if the worklist is not empty, it should
-                            -- not exit immediately.
+                            in  if length ws == 0
+                                    then iter (callerCtx { _property = newProp } : prevCtxs')
+                                    else iter (curCtx { _worklist = ws } :
+                                               callerCtx { _property = newProp } :
+                                               prevCtxs')
                 Intrap (l, l') : ws ->
                     let old      = unsafeLookup' $__LOCATION__ l' (_property curCtx)
                         improved = transfer (unsafeLookup' $__LOCATION__ l (_blocks curCtx), l)
@@ -168,7 +170,9 @@ analyzeInterp opt analysis@Analysis{..} prog =
                             then iter $ curCtx { _property = M.insert l' met (_property curCtx)
                                                , _worklist = ws ++ wplus } : prevCtxs
                             else iter $ curCtx { _worklist = ws } : prevCtxs
-                [] -> [curCtx]
+                [] -> if length prevCtxs > 0
+                        then iter prevCtxs
+                        else [curCtx]
 
         lattice   = _lattice prog
         meet      = _meet lattice
@@ -178,7 +182,7 @@ analyzeInterp opt analysis@Analysis{..} prog =
 
         traceLog ctx = case opt of
             NoTrace   -> id
-            ShowTrace -> trace ("--- curCtx ---\n" ++ show ctx ++ "\n--- * * * * ---\n")
+            ShowTrace -> trace ("--- Trace: curCtx ---\n" ++ show ctx ++ "\n--- * * * * ---\n")
 
 --- Misc
 

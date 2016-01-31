@@ -18,11 +18,10 @@ library
                        Language.DFA.Core.Iteration
                        Language.DFA.AST
                        Language.DFA.Packages.DSA
-                       -- Language.DFA.Packages.RDA
-                       -- Language.DFA.Packages.LVA
-                       -- Language.DFA.Packages.VBEA
-                       -- Language.DFA.Packages.AEA
-                       -- Language.DFA.Packages.CPA
+                       Language.DFA.Packages.RDA
+                       Language.DFA.Packages.LVA
+                       Language.DFA.Packages.VBEA
+                       Language.DFA.Packages.AEA
                        
   other-modules:       Example
                        Language.DFA.Common
