@@ -7,7 +7,7 @@ module Language.DFA.Core.Mono where
 
 import qualified Data.Set  as S
 import qualified Data.Map  as M
-import Control.Lens
+import Control.Lens hiding (Context)
 import Debug.Trace
 import Debug.Trace.LocationTH
 
@@ -40,9 +40,6 @@ data Lattice l = Lattice {
 
 data Direction = Forward | Backward
 
-data CtxOp a l = PushCtx (M.Map a l) [Edge a]
-               | PopCtx (l -> l -> l)
-
 data Analysis ast blk l a = Analysis {
   _lattice      :: ast a -> Lattice l
 , _extermals    :: ast a -> S.Set a
@@ -52,8 +49,8 @@ data Analysis ast blk l a = Analysis {
 , _transfer     :: ast a -> (blk, a) -> l -> l
 , _labels       :: ast a -> S.Set a
 , _direction    :: Direction
-, _blocks       :: ast a -> M.Map a blk
-, _ctxOp        :: ast a -> a -> a -> l -> CtxOp a l
+, _toBlocks     :: ast a -> M.Map a blk
+, _getContextOp :: a -> a -> ast a -> ContextOp a l blk
 }
 
 ---- Coarse Chaotic Iteration ----
@@ -69,7 +66,7 @@ analyze opt analysis@Analysis{..} ast = chaotic opt initSol improveSol
                 -- with :: a -> (Solution a l -> Solution a l)
                 with a sol =
                     let sol'  = converge analysis ast a sol
-                        block = unsafeLookup a $ _blocks ast
+                        block = unsafeLookup a $ _toBlocks ast
                         prop  = unsafeLookup a (sol' ^. entry' _direction)
                         prop' = _transfer ast (block, a) prop
                     in  (exit' _direction) %~ (M.insert a prop') $ sol'
@@ -94,7 +91,7 @@ analyze' opt analysis@Analysis{..} ast =
     in  Solution arr' (M.mapWithKey (\i prop -> _transfer ast (unsafeLookup i bs, i) prop) arr')
     where
         flow = S.toList $ _flow ast
-        bs   = _blocks ast
+        bs   = _toBlocks ast
 
         iter arr []     = arr
         iter arr (w:ws) =
@@ -115,81 +112,56 @@ analyze' opt analysis@Analysis{..} ast =
                 NoTrace   -> x
                 ShowTrace -> trace ("------ Iteration ------\n" ++ show arr ++ "\n" ++ show ws) x
 
----- Contextual Analysis ----
+---- Interprocedural Analysis ----
 
-type CallString a = [a]
+type InterpState a l blk = [Context a l blk]
 
-data SolutionInterp a l = SolutionInterp {
-  _curCtx    :: CallString a
-, _suspended :: M.Map (CallString a) (M.Map a l)
+data Context a l blk = Context {
+  _curflow  :: S.Set (Edge a)   -- flowgraph of current context
+, _worklist :: [Edge a]
+, _property :: M.Map a l
+, _blocks   :: M.Map a blk
 }
 
-instance (Show a, Show l) => Show (SolutionInterp a l) where
-    show s@SolutionInterp{..} =
-        "Current Context: " ++ show _curCtx ++ "\n" ++
-        "Suspended:\n" ++ unlines (map (\(cs, prop) -> show cs ++ "\t" ++ show (M.toList prop)) (M.toList _suspended))
+data ContextOp a l blk = EnterCtx (l -> l) (S.Set (Edge a)) (M.Map a blk) (M.Map a l)
+                       | ExitCtx l
 
-analyzeInterp :: (Ord a, Eq a, Show l, Eq (Solution a l), Show a, Show (Solution a l)) =>
-                 DebugOption -> Analysis ast blk l a -> ast a -> SolutionInterp a l
-analyzeInterp opt analysis@Analysis{..} ast = iter initSol flow
+analyzeInterp :: Ord a => DebugOption -> Analysis ast blk l a -> ast a -> InterpState a l blk
+analyzeInterp opt analysis@Analysis{..} prog =
+    let initialState = [ Context (_flow prog) (S.toList $ _flow prog)
+                                 (_initSol prog) (_toBlocks prog) ] -- top-level context
+    in  iter initialState
     where
-        initSol = SolutionInterp [] (M.singleton [] (_initSol ast))
+        iter (curCtx : prevCtxs) =
+            case (_worklist curCtx) of
+                Interp (l, l') : ws ->
+                    case _getContextOp l l' prog of
+                        EnterCtx intro flow blocks initSol ->
+                            let callSiteProp = unsafeLookup l (_property curCtx)
+                                entryProp = M.insert l' (intro callSiteProp) initSol
+                                newCtx = Context flow (S.toList flow)
+                                                 entryProp blocks
+                            in  iter (newCtx : curCtx { _worklist = ws } : prevCtxs)
+                        ExitCtx refine ->
+                            let callerCtx : prevCtxs' = prevCtxs
+                                newProp = M.update (Just . meet refine) l' (_property callerCtx)
+                            in  iter (callerCtx { _property = newProp } : prevCtxs')
+                Intrap (l, l') : ws ->
+                    let old      = unsafeLookup l' (_property curCtx)
+                        improved = transfer (unsafeLookup l (_blocks curCtx), l)
+                                            (unsafeLookup l $ _property curCtx)
+                        met      = old `meet` improved
+                        wplus    = filter (\(Intrap (l1, _)) -> l1 == l') $ S.toList (_curflow curCtx)
+                    in  if not (improved `lessThen` old)
+                            then iter $ curCtx { _property = M.insert l' met (_property curCtx)
+                                               , _worklist = ws ++ wplus } : prevCtxs
+                            else iter $ curCtx { _worklist = ws } : prevCtxs
 
-        interflow = S.toList $ _interflow ast
-        flow  = S.toList (_flow ast) ++ concatMap (\(lc, ln, lx, lr) -> [ Interp (lc, ln), Interp (lx, lr)] ) interflow
-        bs    = _blocks ast
+        lattice  = _lattice prog
+        meet     = _meet lattice
+        lessThen = _lessThen lattice
+        transfer = _transfer prog
 
-        iter sol []     = sol
-        iter sol (w:ws) = case w of
-            Intrap (l, l') -> withIntrap sol $ \cont sol ->
-                let old      = unsafeLookup' $(__LOCATION__) l' sol
-                    improved = _transfer ast (unsafeLookup' $(__LOCATION__) l bs, l) (unsafeLookup' $(__LOCATION__) l sol)
-                    met      = (_meet lattice) old improved
-                    wplus    = filter (\case
-                                            Intrap (l1, _) -> l1 == l'
-                                            Interp (l1, _) -> l1 == l') flow
-                    ifLess   = (_lessThen lattice) improved old
-                in  if not (ifLess)
-                        then traceLog sol ws $ cont (M.insert l' met sol) (ws ++ wplus)
-                        else traceLog sol ws $ cont sol ws
-            Interp (l, l') ->
-                let prop = curPropWithLabel sol l
-                in case _ctxOp ast l l' prop of
-                    PushCtx ctxInitSol wplus ->
-                        let newCtx  = l : (_curCtx sol)
-                            newSusp = M.insert newCtx ctxInitSol (_suspended sol)
-                        in  iter (SolutionInterp newCtx newSusp) (wplus ++ ws)
-                    PopCtx f ->
-                        let curCtx   = _curCtx sol
-                            curProp  = unsafeLookup' $(__LOCATION__) curCtx (_suspended sol)
-                            oldCtx   = tail curCtx
-                            oldProp  = unsafeLookup' $(__LOCATION__) oldCtx (_suspended sol)
-                            oldProp' = f (unsafeLookup' $(__LOCATION__) l curProp) (unsafeLookup' $(__LOCATION__) l' oldProp)
-                            susp'    = M.insert oldCtx (M.insert l' oldProp' oldProp)
-                                                       (M.delete curCtx $ _suspended sol)
-                            wplus    = filter (\case
-                                            Intrap (l1, _) -> l1 == l'
-                                            Interp (l1, _) -> l1 == l') flow
-                        in  iter (SolutionInterp oldCtx susp') (ws ++ wplus)
-
-        lattice = _lattice ast
-
-        traceLog arr ws x =
-            case opt of
-                NoTrace   -> x
-                ShowTrace -> trace ("------ Iteration ------\n" ++ show (M.toList arr) ++
-                                    "\nWorklist: " ++ show ws ++ "\n") x
-
-        withIntrap s cb =
-            let curCtx  = _curCtx s
-                curProp = unsafeLookup curCtx (_suspended s)
-            in  cb (\curProp' ws' ->
-                        iter (SolutionInterp curCtx $ M.insert curCtx curProp' (_suspended s)) ws'
-                        ) curProp
-
-        curPropWithLabel s l =
-            let prop = unsafeLookup (_curCtx s) (_suspended s)
-            in  unsafeLookup l prop
 
 --- Misc
 
