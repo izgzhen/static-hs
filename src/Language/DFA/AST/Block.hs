@@ -6,24 +6,24 @@ import Language.DFA.AST.Def
 import Language.DFA.Core.Label
 import Data.Map hiding (map)
 
--- blocks inside a statement
+-- Blocks inside a statement
 class ToBlocks ast where
-    blocks :: Label a => ast a -> Map a Block
+    toBlocks :: Label a => ast a -> Map a Block
 
 instance ToBlocks Stmt where
-    blocks s = case s of
+    toBlocks s = case s of
         Assign l x a            -> singleton l (BAssign x a)
         Skip l                  -> singleton l BSkip
-        Seq s1 s2               -> blocks s1 `union` blocks s2
+        Seq s1 s2               -> toBlocks s1 `union` toBlocks s2
         IfThenElse (bexp, l) s1 s2 ->
-            insert l (BBExp bexp) (blocks s1 `union` blocks s2)
-        While (bexp, l) s       -> insert l (BBExp bexp) (blocks s)
+            insert l (BBExp bexp) (toBlocks s1 `union` toBlocks s2)
+        While (bexp, l) s       -> insert l (BBExp bexp) (toBlocks s)
         Call x ins outs is end  -> fromList [ (is, BCall x ins outs)
                                             , (end, BCall x ins outs) ] -- FIXME: a bit weird
 
 instance ToBlocks Program where
-    blocks (Program procs s) = mconcat (map blocks procs) `union` blocks s
+    toBlocks (Program procs s) = mconcat (map toBlocks procs) `union` toBlocks s
 
 instance ToBlocks Proc where
-    blocks (Proc _ _ _ is s end) =
-        fromList [(is, BIs), (end, BEnd)] `union` blocks s
+    toBlocks (Proc _ _ _ is s end) =
+        fromList [(is, BIs), (end, BEnd)] `union` toBlocks s

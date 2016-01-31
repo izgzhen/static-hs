@@ -121,47 +121,64 @@ data Context a l blk = Context {
 , _worklist :: [Edge a]
 , _property :: M.Map a l
 , _blocks   :: M.Map a blk
-}
+} deriving (Show)
 
-data ContextOp a l blk = EnterCtx (l -> l) (S.Set (Edge a)) (M.Map a blk) (M.Map a l)
-                       | ExitCtx l
+data ContextOp a l blk = EnterCtx (S.Set (Edge a)) (M.Map a blk) (l -> M.Map a l) (l -> l -> l)
+                       | ExitCtx (l -> l -> l)
 
-analyzeInterp :: Ord a => DebugOption -> Analysis ast blk l a -> ast a -> InterpState a l blk
+analyzeInterp :: (Show a, Ord a, Show blk, Show l) =>
+                 DebugOption -> Analysis ast blk l a -> ast a -> InterpState a l blk
 analyzeInterp opt analysis@Analysis{..} prog =
     let initialState = [ Context (_flow prog) (S.toList $ _flow prog)
                                  (_initSol prog) (_toBlocks prog) ] -- top-level context
     in  iter initialState
     where
-        iter (curCtx : prevCtxs) =
+        iter (curCtx : prevCtxs) = traceLog curCtx $
             case (_worklist curCtx) of
                 Interp (l, l') : ws ->
                     case _getContextOp l l' prog of
-                        EnterCtx intro flow blocks initSol ->
-                            let callSiteProp = unsafeLookup l (_property curCtx)
-                                entryProp = M.insert l' (intro callSiteProp) initSol
+                        EnterCtx flow blocks intro botRet ->
+                            let callSiteProp = unsafeLookup' $__LOCATION__ l (_property curCtx)
+                                lr = head [ lr | (lc, _, _, lr) <- S.toList interflow , lc == l ]
                                 newCtx = Context flow (S.toList flow)
-                                                 entryProp blocks
-                            in  iter (newCtx : curCtx { _worklist = ws } : prevCtxs)
+                                                 (intro callSiteProp) blocks
+                                afterCallProp = unsafeLookup' $__LOCATION__ lr (_property curCtx)
+                                prop' = M.insert lr (botRet callSiteProp afterCallProp)
+                                                 (_property curCtx)
+                            in  iter (newCtx : curCtx { _worklist = ws
+                                                      , _property = prop' } : prevCtxs)
                         ExitCtx refine ->
                             let callerCtx : prevCtxs' = prevCtxs
-                                newProp = M.update (Just . meet refine) l' (_property callerCtx)
+                                calleeProp = unsafeLookup' $__LOCATION__ l (_property curCtx)
+                                newProp = M.update (Just . refine calleeProp)
+                                                   l' (_property callerCtx)
                             in  iter (callerCtx { _property = newProp } : prevCtxs')
+                            -- FIXME: if the worklist is not empty, it should
+                            -- not exit immediately.
                 Intrap (l, l') : ws ->
-                    let old      = unsafeLookup l' (_property curCtx)
-                        improved = transfer (unsafeLookup l (_blocks curCtx), l)
-                                            (unsafeLookup l $ _property curCtx)
+                    let old      = unsafeLookup' $__LOCATION__ l' (_property curCtx)
+                        improved = transfer (unsafeLookup' $__LOCATION__ l (_blocks curCtx), l)
+                                            (unsafeLookup' $__LOCATION__ l $ _property curCtx)
                         met      = old `meet` improved
-                        wplus    = filter (\(Intrap (l1, _)) -> l1 == l') $ S.toList (_curflow curCtx)
+                        wplus    = filter (\case
+                                            Intrap (l1, _) -> l1 == l'
+                                            Interp (l1, _) -> False)
+                                        $ S.toList (_curflow curCtx)
                     in  if not (improved `lessThen` old)
                             then iter $ curCtx { _property = M.insert l' met (_property curCtx)
                                                , _worklist = ws ++ wplus } : prevCtxs
                             else iter $ curCtx { _worklist = ws } : prevCtxs
+                [] -> [curCtx]
 
-        lattice  = _lattice prog
-        meet     = _meet lattice
-        lessThen = _lessThen lattice
-        transfer = _transfer prog
+        lattice   = _lattice prog
+        meet      = _meet lattice
+        lessThen  = _lessThen lattice
+        transfer  = _transfer prog
+        interflow = _interflow prog
 
+        traceLog ctx = case opt of
+            NoTrace   -> id
+            ShowTrace -> trace ("--- curCtx ---\n" ++ show ctx ++ "\n--- * * * * ---\n")
 
 --- Misc
 

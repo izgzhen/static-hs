@@ -13,7 +13,7 @@ import Data.Set hiding (foldr, map)
 import qualified Data.Map as M
 
 labels :: (ToBlocks ast, Label a) => ast a -> Set a
-labels ast = fromList $ M.keys (blocks ast)
+labels ast = fromList $ M.keys (toBlocks ast)
 
 instance Label a => Labelled Stmt a where
     -- init function

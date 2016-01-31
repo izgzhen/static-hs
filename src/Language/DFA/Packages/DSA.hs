@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, TemplateHaskell #-}
 
 -- Detection of Sign Analysis
 -- Featuring interprocedural analysis
@@ -13,6 +13,7 @@ import Language.DFA.Common
 import Data.Set hiding (filter, map, foldr)
 import qualified Data.Set as S
 import qualified Data.Map as M
+import Debug.Trace.LocationTH
 
 
 data Sign = Positive | Zero     | Negative
@@ -44,23 +45,23 @@ dsLattice (Program _ topLevel) = Lattice {
 }
 
 dsLE :: DSProperty -> DSProperty -> Bool
-dsLE ds1 ds2 = all id $ map (\(x, s1) -> s1 `sLE` unsafeLookup x ds2) $ M.toList ds1
+dsLE ds1 ds2 = all id $ map (\(x, s1) -> s1 `sLE` unsafeLookup' $__LOCATION__ x ds2) $ M.toList ds1
 
 dsMeet :: DSProperty -> DSProperty -> DSProperty
-dsMeet ds1 ds2 = M.mapWithKey (\x s1 -> s1 `sMeet` unsafeLookup x ds2) ds1
+dsMeet ds1 ds2 = M.mapWithKey (\x s1 -> s1 `sMeet` unsafeLookup' $__LOCATION__ x ds2) ds1
 
 dsAnalysis :: (Show a, Label a) => Analysis Program Block DSProperty a
 dsAnalysis = Analysis {
   _lattice      = dsLattice
 , _extermals    = S.singleton . initLabel
 , _initSol      = dsInitSol
-, _flow         = \(Program _ stmt) -> flow stmt
+, _flow         = dsFlow
 , _interflow    = interflow
 , _transfer     = dsTranfer
 , _labels       = labels
 , _direction    = Forward
-, _blocks       = blocks
-, _ctxOp        = dsCtxOp
+, _toBlocks     = toBlocks
+, _getContextOp = dsCtxOp
 }
 
 dsInitSol :: Label a => Program a -> M.Map a DSProperty
@@ -68,6 +69,16 @@ dsInitSol (Program _ stmt) =
     M.fromList $ zip (toList $ labels stmt) $
                      repeat (M.fromList $ zip (fv stmt)
                                               (repeat Bottom))
+
+dsFlow prog@(Program _ stmt) = flow stmt `union`
+     S.fromList [ Interp (lc, ln)
+                | (lc, ln, _, _) <- S.toList $ interflow prog
+                , lc `member` labels stmt ]
+
+dsFlowProc prog proc@(Proc _ _ _ _ _ end) = flow proc `union`
+    S.fromList [ Interp (lx, lr)
+               | (_, _, lx, lr) <- S.toList $ interflow prog
+               , lx `member` labels proc ]
 
 dsTranfer :: Label a => Program a -> (Block, a) -> DSProperty -> DSProperty
 dsTranfer _ (block, l) entered = case block of
@@ -79,7 +90,7 @@ dsTranfer _ (block, l) entered = case block of
         BEnd        -> entered
     where
         acp :: AExp -> DSProperty -> Sign
-        acp (AVar x) p = unsafeLookup x p
+        acp (AVar x) p = unsafeLookup' $__LOCATION__ x p
         acp (ANum i) _ = if i > 0 then Positive else if i < 0 then Negative else Zero
         acp (AInfix a1 aop a2) p =
             applyAOpDS (acp a1 p, aop, acp a2 p)
@@ -106,31 +117,36 @@ applyAOpDS = \case
     _                               -> Top
 
 -- Interp flow (l, l')
-dsCtxOp :: (Show a, Label a) => Program a -> a -> a -> DSProperty -> CtxOp a DSProperty
-dsCtxOp p@(Program procs _) l l' prop =
-    case (unsafeLookup l bs, unsafeLookup l' bs) of
+dsCtxOp :: (Label a, Show a) => a -> a -> Program a -> ContextOp a DSProperty Block
+dsCtxOp l l' p@(Program procs _) =
+    case (unsafeLookup' $__LOCATION__ l bs, unsafeLookup' $__LOCATION__ l' bs) of
         (BCall f ins outs, BIs) ->
             let proc = head $ filter (\(Proc f' _ _ _ _ _) -> f' == f) procs
                 Proc _ ins' outs' _ stmt _ = proc
-                prop' = M.fromList $ zip ins' $ map (flip unsafeLookup prop) ins
-                dict  = zip (S.toList $ labels proc) $
-                            repeat (M.fromList $ zip (fv stmt)
-                                                     (repeat Bottom))
-                wplus = S.toList $ flow proc
-            in  PushCtx (M.insert l' prop' (M.fromList dict)) wplus
-        (BEnd, BCall f ins outs) -> PopCtx $ \retsiteProp callsiteProp ->
-                    let proc = head $ filter (\(Proc f' _ _ _ _ _) -> f' == f) procs
-                        Proc _ ins' outs' _ stmt _ = proc
-                        propRet = zip outs $ map (flip unsafeLookup prop) outs'
-                        callsiteProp' = foldr meet callsiteProp propRet
-                        meet (x, px) p = M.insert x (px `sMeet` unsafeLookup x p) p
-                    in  callsiteProp'
+                initSol prop =
+                    let entry = M.fromList $ zip ins' (map (flip (unsafeLookup' $__LOCATION__) prop) ins)
+                        emptyDict = zip (S.toList $ labels proc) $
+                                        repeat (M.fromList $ zip (fv stmt)
+                                                             (repeat Bottom))
+                    in  M.update (Just . M.union entry) l' (M.fromList emptyDict)
+                botRet callSiteProp = M.mapWithKey (\x l ->
+                                        if x `elem` outs
+                                            then Bottom
+                                            else l `sMeet` unsafeLookup' $__LOCATION__ x callSiteProp)
+            in  EnterCtx (dsFlowProc p proc) (toBlocks proc) initSol botRet
+
+        (BEnd, BCall f ins outs) -> ExitCtx $ \calleeProp callerProp ->
+            let proc = head $ filter (\(Proc f' _ _ _ _ _) -> f' == f) procs
+                Proc _ ins' outs' _ stmt _ = proc
+                updates = zip outs $ map (flip (unsafeLookup' $__LOCATION__) calleeProp) outs'
+                callerProp' = foldr meet callerProp updates
+                meet (x, px) p = M.insert x (px `sMeet` unsafeLookup' $__LOCATION__ x p) p
+            in  callerProp'
         _ -> error $ "Illegal interprocedural flow labels: " ++ show l ++ ", " ++ show l'
     where
-        bs = blocks p
+        bs = toBlocks p
 
 
-dsa :: (Label a, Show a) =>
-       DebugOption -> Program a -> SolutionInterp a DSProperty
+dsa :: (Label a, Show a) => DebugOption -> Program a -> InterpState a DSProperty Block
 dsa opt = analyzeInterp opt dsAnalysis
 
