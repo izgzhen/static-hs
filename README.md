@@ -12,12 +12,17 @@ Why Haskell? First, I have been programming with it for almost a year and will b
 ### Modules
 * Data Flow Analaysis: `Language.DFA`
     + Monotone Framework: `Language.DFA.Core.Mono`
-    + Reaching Definition Analysis: `Language.DFA.Packages.RDA`
-    + Available Expressions Analysis: `Language.DFA.Packages.AEA`
-    + Very Busy Expressions Analysis: `Language.DFA.Packages.VBEA`
-    + Constant Propagation Analysis: `Language.DFA.Packages.CPA`
-    + Live Variable Analysis: `Language.DFA.Packages.LVA`
+    + Intra-procedural Analysis:
+        + Reaching Definition Analysis: `Language.DFA.Packages.RDA`
+        + Available Expressions Analysis: `Language.DFA.Packages.AEA`
+        + Very Busy Expressions Analysis: `Language.DFA.Packages.VBEA`
+        + Live Variable Analysis: `Language.DFA.Packages.LVA`
+    + Inter-procedural Analysis:
+        + Detection of Sign Analysis: `Language.DFA.Packages.DSA`
 
+## TODOs
+1. Test inter-procedural analysis with the recursive function
+2. Abstract 0-CFA Analysis
 
 ### References
 1. <p id="ppa"></p>Flemming Nielson, Hanne R. Nielson, and Chris Hankin. 1999. Principles of Program Analysis. Springer-Verlag New York, Inc., Secaucus, NJ, USA.

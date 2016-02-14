@@ -22,6 +22,10 @@ library
                        Language.DFA.Packages.LVA
                        Language.DFA.Packages.VBEA
                        Language.DFA.Packages.AEA
+                       Language.DFA.Packages.Interp
+
+                       Language.CFA.Fun
+                       Language.CFA.ZCFA
                        
   other-modules:       Example
                        Language.DFA.Common
@@ -30,6 +34,6 @@ library
                        Language.DFA.AST.Label
                        Language.DFA.AST.Block
   -- other-extensions:    
-  build-depends:       base >=4.8 && <4.9, containers, lens, loch-th
+  build-depends:       base >=4.8 && <4.9, containers, lens, loch-th, mtl
   hs-source-dirs:      src
   default-language:    Haskell2010
